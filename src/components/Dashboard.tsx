@@ -127,6 +127,20 @@ const isWhiteColor = (value: string) => {
   return normalized === 'branca' || normalized === 'branco' || normalized === 'white';
 };
 
+const normalizeDashboardColor = (value: string): 'Branca' | 'Azul' | 'Preta' | null => {
+  const normalized = normalizeColor(value);
+  if (normalized === 'azul' || normalized === 'blue') return 'Azul';
+  if (normalized === 'preta' || normalized === 'preto' || normalized === 'black') return 'Preta';
+  if (normalized === 'branca' || normalized === 'branco' || normalized === 'white') return 'Branca';
+  return null;
+};
+
+const sizeRank = (size: string) => {
+  const order = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'XXG'];
+  const index = order.indexOf((size || '').toUpperCase());
+  return index >= 0 ? index : Number.MAX_SAFE_INTEGER;
+};
+
 const INDICATOR_ORDER: IndicatorKey[] = [
   'totalFisico',
   'totalReserva',
@@ -246,10 +260,11 @@ const INDICATOR_CONFIG: Record<IndicatorKey, IndicatorConfig> = {
 };
 
 export default function Dashboard() {
+  type ActiveTab = 'detalhamento' | 'estoqueReposicao' | 'pedidos';
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'detalhamento' | 'pedidos'>('detalhamento');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('detalhamento');
   const [searchName, setSearchName] = useState('');
   const [orderSort, setOrderSort] = useState<'oldest' | 'newest'>('oldest');
   const [deliveringId, setDeliveringId] = useState<string | null>(null);
@@ -376,6 +391,34 @@ export default function Dashboard() {
       return orderSort === 'oldest' ? timeA - timeB : timeB - timeA;
     });
   }, [data, searchName, orderSort]);
+
+  const stockPlusReplenishmentBySize = useMemo(() => {
+    const rows = data?.tabelaGerencial ?? [];
+    const grouped = new Map<string, { tamanho: string; Branca: number; Azul: number; Preta: number; total: number }>();
+
+    for (const row of rows) {
+      const normalizedColor = normalizeDashboardColor(row.cor);
+      if (!normalizedColor) continue;
+
+      const sizeKey = (row.tamanho || '').trim().toUpperCase();
+      if (!sizeKey) continue;
+
+      if (!grouped.has(sizeKey)) {
+        grouped.set(sizeKey, { tamanho: sizeKey, Branca: 0, Azul: 0, Preta: 0, total: 0 });
+      }
+
+      const value = Number(row.quantidade || 0) + Number(row.reposicoes || 0);
+      const current = grouped.get(sizeKey)!;
+      current[normalizedColor] += value;
+      current.total += value;
+    }
+
+    return [...grouped.values()].sort((a, b) => {
+      const rankDiff = sizeRank(a.tamanho) - sizeRank(b.tamanho);
+      if (rankDiff !== 0) return rankDiff;
+      return a.tamanho.localeCompare(b.tamanho, 'pt-BR');
+    });
+  }, [data]);
 
   const handleMarkAsDelivered = async (order: DashboardOrder) => {
     setError(null);
@@ -553,7 +596,7 @@ export default function Dashboard() {
         {error && <div className="rounded-xl p-3 mb-4 font-bold text-[13px] bg-[#fff1f1] text-[#9b1c1c] border border-[#fecaca]">{error}</div>}
 
         <div className="mb-6">
-          <div className="grid grid-cols-2 gap-2 bg-[#F8F9FA] border border-border-color rounded-[12px] p-1">
+          <div className="grid grid-cols-3 gap-2 bg-[#F8F9FA] border border-border-color rounded-[12px] p-1">
             <button
               type="button"
               onClick={() => setActiveTab('detalhamento')}
@@ -562,6 +605,15 @@ export default function Dashboard() {
               }`}
             >
               Detalhamento
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('estoqueReposicao')}
+              className={`rounded-[8px] px-3 py-2.5 text-[13px] md:text-[14px] font-bold border-none cursor-pointer transition-colors ${
+                activeTab === 'estoqueReposicao' ? 'bg-primary text-white' : 'bg-transparent text-text-main'
+              }`}
+            >
+              Estoque + Reposicao
             </button>
             <button
               type="button"
@@ -695,6 +747,49 @@ export default function Dashboard() {
               </div>
             </div>
           </>
+        )}
+
+        {activeTab === 'estoqueReposicao' && (
+          <div className="bg-white border border-border-color rounded-[16px] overflow-hidden">
+            <div className="p-4 md:p-[20px] pb-3 border-b border-border-color">
+              <h2 className="m-0 text-[18px] font-bold text-text-main">Estoque inicial + reposicao por tamanho</h2>
+              <p className="mt-1.5 mb-0 text-text-muted text-[13px]">
+                Quadro consolidado por tamanho e cor (Branca, Azul e Preta), somando quantidade inicial com reposicoes.
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] border-collapse text-[14px]">
+                <thead>
+                  <tr>
+                    <th className="bg-[#F8F9FA] text-text-muted p-4 text-left font-semibold sticky top-0 border-b border-border-color">Tamanho</th>
+                    <th className="bg-[#F8F9FA] text-text-muted p-4 text-left font-semibold sticky top-0 border-b border-border-color">Branca</th>
+                    <th className="bg-[#F8F9FA] text-text-muted p-4 text-left font-semibold sticky top-0 border-b border-border-color">Azul</th>
+                    <th className="bg-[#F8F9FA] text-text-muted p-4 text-left font-semibold sticky top-0 border-b border-border-color">Preta</th>
+                    <th className="bg-[#F8F9FA] text-text-muted p-4 text-left font-semibold sticky top-0 border-b border-border-color">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stockPlusReplenishmentBySize.map((row) => (
+                    <tr key={row.tamanho} className="hover:bg-[#FAFAFA] transition-colors border-b border-border-color last:border-0">
+                      <td className="p-4 font-medium">{row.tamanho}</td>
+                      <td className={`p-4 ${getStockClass(row.Branca)}`}>{row.Branca}</td>
+                      <td className={`p-4 ${getStockClass(row.Azul)}`}>{row.Azul}</td>
+                      <td className={`p-4 ${getStockClass(row.Preta)}`}>{row.Preta}</td>
+                      <td className="p-4 font-bold text-primary">{row.total}</td>
+                    </tr>
+                  ))}
+                  {stockPlusReplenishmentBySize.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-6 text-center text-text-muted">
+                        Nenhum registro encontrado para montar o quadro.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
 
         {activeTab === 'pedidos' && (
