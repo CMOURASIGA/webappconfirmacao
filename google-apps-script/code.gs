@@ -1033,9 +1033,9 @@ function getAvailableStockOptions_() {
       cor: String(row[idxCor] || '').trim(),
       quantidade: Number(row[idxQtd]) || 0,
       reserva: Number(row[idxReserva]) || 0,
-      disponivel: Number(row[idxDisponivel]) || 0
+      disponivel: Math.max((Number(row[idxQtd]) || 0) - (Number(row[idxReserva]) || 0), 0)
     }))
-    .filter(item => item.tamanho && item.cor && (item.disponivel > 0 || item.reserva > 0))
+    .filter(item => item.tamanho && item.cor && item.disponivel > 0)
     .sort((a, b) => {
       const corCmp = normalizeText_(a.cor).localeCompare(normalizeText_(b.cor));
       if (corCmp !== 0) return corCmp;
@@ -1187,29 +1187,15 @@ function processOrderItems_(items, options) {
       }
     }
 
-    itemsProcessed.push({
-      ordem: index + 1,
-      tamanho,
-      cor,
-      chave: `${tamanho} | ${cor}`,
-      quantidadeSolicitada,
-      quantidadeAtendida: 0,
-      statusItem: 'SOLICITAR REPOSIÇÃO',
-      alternativaSugerida: '',
-      observacao: isSpecificReserveClient
-        ? 'Sem saldo suficiente na reserva de brinde para esta excecao.'
-        : 'Sem saldo suficiente no disponivel (desconsiderando reserva de brinde).',
-      aceitaTamanhoAlternativo: item.aceitaTamanhoAlternativo ? 'SIM' : 'NÃO',
-      aceitaOutraCor: item.aceitaOutraCor ? 'SIM' : 'NÃO',
-      origemAbatimento: 'NAO_ABATIDO',
-      quantidadeDaReserva: 0,
-      quantidadeDoDisponivel: 0,
-      excecaoReserva: isSpecificReserveClient ? 'SIM' : 'NÃO',
-      motivoExcecaoReserva: isSpecificReserveClient ? reserveExceptionReason : '',
-      abateReservaGlobal: 0,
-      quantidadeAntes: exact ? exact.quantidade : 0,
-      quantidadeDepois: exact ? exact.quantidade : 0
-    });
+    if (isSpecificReserveClient) {
+      throw new Error(
+        `Item ${index + 1} (${tamanho} | ${cor}) sem saldo suficiente na reserva de brinde.`
+      );
+    }
+
+    throw new Error(
+      `Item ${index + 1} (${tamanho} | ${cor}) sem saldo disponível para solicitação.`
+    );
   });
 
   stockRows.forEach(row => {
