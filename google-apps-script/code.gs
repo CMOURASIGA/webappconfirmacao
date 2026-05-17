@@ -45,7 +45,7 @@ function doGet(e) {
     ok: true,
     mode: 'api',
     message: 'Web App ativo. Use POST com { action, payload }.',
-    actions: ['getBootstrapData', 'submitOrder', 'getDashboardData', 'markOrderDelivered', 'settleReplenishment', 'setupWebappEnvironment', 'repairHistoricalItems']
+    actions: ['getBootstrapData', 'submitOrder', 'getDashboardData', 'markOrderDelivered', 'markOrderStockSettled', 'settleReplenishment', 'setupWebappEnvironment', 'repairHistoricalItems']
   });
 }
 
@@ -74,6 +74,8 @@ function handleApiAction_(action, payload) {
         return jsonResponse_({ ok: true, data: getDashboardData() });
       case 'markOrderDelivered':
         return jsonResponse_({ ok: true, data: markOrderDelivered(payload) });
+      case 'markOrderStockSettled':
+        return jsonResponse_({ ok: true, data: markOrderStockSettled(payload) });
       case 'settleReplenishment':
         return jsonResponse_({ ok: true, data: settleReplenishment(payload) });
       case 'setupWebappEnvironment':
@@ -597,6 +599,8 @@ function getDashboardData() {
   const idxStatusGeral = findHeaderIndex_(responseHeaders, ['Status Geral', 'Status Estoque']);
   const idxStatusEntrega = findHeaderIndex_(responseHeaders, ['Status Entrega']);
   const idxDataEntrega = findHeaderIndex_(responseHeaders, ['Data/Hora Entrega']);
+  const idxStatusBaixa = findHeaderIndex_(responseHeaders, ['Status Baixa Estoque']);
+  const idxDataBaixa = findHeaderIndex_(responseHeaders, ['Data/Hora Baixa Estoque']);
 
   const idxItemRequestId = findHeaderIndex_(itemHeaders, ['ID Solicitacao', 'ID Solicitação']);
   const idxItemOrdem = findHeaderIndex_(itemHeaders, ['Ordem Item']);
@@ -604,6 +608,8 @@ function getDashboardData() {
   const idxItemCor = findHeaderIndex_(itemHeaders, ['Cor']);
   const idxItemStatusEntrega = findHeaderIndex_(itemHeaders, ['Status Entrega Item']);
   const idxItemDataEntrega = findHeaderIndex_(itemHeaders, ['Data/Hora Entrega Item']);
+  const idxItemStatusBaixa = findHeaderIndex_(itemHeaders, ['Status Baixa Item']);
+  const idxItemDataBaixa = findHeaderIndex_(itemHeaders, ['Data/Hora Baixa Item']);
 
   const statusEntregaByRequestId = {};
   responseData.slice(1).forEach(row => {
@@ -650,7 +656,9 @@ function getDashboardData() {
       motivoExcecaoReserva: idxItemMotivoExcecao >= 0 ? String(row[idxItemMotivoExcecao] || '').trim() : '',
       abateReservaGlobal: idxItemAbateReservaGlobal >= 0 ? Number(row[idxItemAbateReservaGlobal]) || 0 : 0,
       statusEntregaItem: idxItemStatusEntrega >= 0 ? String(row[idxItemStatusEntrega] || '').trim() : '',
-      entregueItemEm: idxItemDataEntrega >= 0 ? formatDateTimeSafe_(row[idxItemDataEntrega]) : ''
+      entregueItemEm: idxItemDataEntrega >= 0 ? formatDateTimeSafe_(row[idxItemDataEntrega]) : '',
+      statusBaixaItem: idxItemStatusBaixa >= 0 ? String(row[idxItemStatusBaixa] || '').trim() : '',
+      baixaItemEm: idxItemDataBaixa >= 0 ? formatDateTimeSafe_(row[idxItemDataBaixa]) : ''
     });
   });
 
@@ -663,6 +671,8 @@ function getDashboardData() {
       const rawDataHora = idxDataHora >= 0 ? row[idxDataHora] : '';
       const rawDataEntrega = idxDataEntrega >= 0 ? row[idxDataEntrega] : '';
       const statusEntrega = idxStatusEntrega >= 0 ? String(row[idxStatusEntrega] || '').trim() : '';
+      const rawDataBaixa = idxDataBaixa >= 0 ? row[idxDataBaixa] : '';
+      const statusBaixa = idxStatusBaixa >= 0 ? String(row[idxStatusBaixa] || '').trim() : '';
 
       return {
         requestId,
@@ -674,6 +684,8 @@ function getDashboardData() {
         statusGeral: idxStatusGeral >= 0 ? String(row[idxStatusGeral] || '').trim() : '',
         statusEntrega: statusEntrega || 'PENDENTE',
         entregueEm: formatDateTimeSafe_(rawDataEntrega),
+        statusBaixaEstoque: statusBaixa || 'PENDENTE',
+        baixaEstoqueEm: formatDateTimeSafe_(rawDataBaixa),
         items: itemsByRequestId[requestId] || [],
         _timestamp: parseDateTimeSafe_(rawDataHora).getTime()
       };
@@ -772,6 +784,68 @@ function markOrderDelivered(payload) {
     success: true,
     requestId: requestId,
     deliveredAt: Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss')
+  };
+}
+
+function markOrderStockSettled(payload) {
+  const requestId = payload && payload.requestId ? String(payload.requestId).trim() : '';
+  if (!requestId) throw new Error('Informe o requestId para confirmar a baixa de estoque.');
+
+  ensureMainResponseSheet_();
+  ensureItemsSheet_();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const responseSheet = ss.getSheetByName(RESPONSE_SHEET_NAME);
+  const itemsSheet = ss.getSheetByName(ITEMS_SHEET_NAME);
+  if (!responseSheet) throw new Error(`Aba "${RESPONSE_SHEET_NAME}" nao encontrada.`);
+  if (!itemsSheet) throw new Error(`Aba "${ITEMS_SHEET_NAME}" nao encontrada.`);
+
+  const headers = responseSheet.getRange(1, 1, 1, responseSheet.getLastColumn()).getValues()[0];
+  const idxRequestId = findHeaderIndex_(headers, ['ID Solicitacao', 'ID Solicitação']);
+  const idxStatusBaixa = findHeaderIndex_(headers, ['Status Baixa Estoque']);
+  const idxDataBaixa = findHeaderIndex_(headers, ['Data/Hora Baixa Estoque']);
+
+  if (idxRequestId < 0 || idxStatusBaixa < 0 || idxDataBaixa < 0) {
+    throw new Error('A aba de respostas precisa conter os campos de baixa de estoque.');
+  }
+
+  const data = responseSheet.getDataRange().getValues();
+  let targetRow = -1;
+
+  for (let i = 1; i < data.length; i++) {
+    const currentRequestId = String(data[i][idxRequestId] || '').trim();
+    if (currentRequestId === requestId) {
+      targetRow = i + 1;
+      break;
+    }
+  }
+
+  if (targetRow === -1) {
+    throw new Error(`Pedido ${requestId} nao encontrado.`);
+  }
+
+  const now = new Date();
+  responseSheet.getRange(targetRow, idxStatusBaixa + 1).setValue('CONFIRMADA');
+  responseSheet.getRange(targetRow, idxDataBaixa + 1).setValue(now);
+
+  const itemHeaders = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
+  const idxItemRequestId = findHeaderIndex_(itemHeaders, ['ID Solicitacao', 'ID Solicitação']);
+  const idxItemStatusBaixa = findHeaderIndex_(itemHeaders, ['Status Baixa Item']);
+  const idxItemDataBaixa = findHeaderIndex_(itemHeaders, ['Data/Hora Baixa Item']);
+
+  if (idxItemRequestId >= 0 && idxItemStatusBaixa >= 0 && idxItemDataBaixa >= 0) {
+    const itemData = itemsSheet.getDataRange().getValues();
+    for (let i = 1; i < itemData.length; i++) {
+      const currentRequestId = String(itemData[i][idxItemRequestId] || '').trim();
+      if (currentRequestId !== requestId) continue;
+      itemsSheet.getRange(i + 1, idxItemStatusBaixa + 1).setValue('CONFIRMADA');
+      itemsSheet.getRange(i + 1, idxItemDataBaixa + 1).setValue(now);
+    }
+  }
+
+  return {
+    success: true,
+    requestId: requestId,
+    stockSettledAt: Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss')
   };
 }
 
@@ -1199,6 +1273,8 @@ function appendMainRequestRow_(data) {
   setValueByHeader_(row, headers, 'Link Comprovante', data.comprovanteUrl);
   setValueByHeader_(row, headers, 'Status Entrega', 'PENDENTE');
   setValueByHeader_(row, headers, 'Data/Hora Entrega', '');
+  setValueByHeader_(row, headers, 'Status Baixa Estoque', 'PENDENTE');
+  setValueByHeader_(row, headers, 'Data/Hora Baixa Estoque', '');
   setValueByHeader_(row, headers, 'Cliente Específico Reserva', data.clienteEspecificoReserva ? 'SIM' : 'NÃO');
   setValueByHeader_(row, headers, 'Motivo Exceção Reserva', data.motivoExcecaoReserva || '');
 
@@ -1242,6 +1318,8 @@ function appendItemRows_(requestId, submittedAt, payload, itemsProcessed, proofI
     setValueByHeader_(row, headers, 'Abate Reserva Global', item.abateReservaGlobal || 0);
     setValueByHeader_(row, headers, 'Status Entrega Item', 'PENDENTE');
     setValueByHeader_(row, headers, 'Data/Hora Entrega Item', '');
+    setValueByHeader_(row, headers, 'Status Baixa Item', 'PENDENTE');
+    setValueByHeader_(row, headers, 'Data/Hora Baixa Item', '');
 
     sheet.appendRow(row);
   });
@@ -1644,6 +1722,8 @@ function ensureMainResponseSheet_() {
     'Link Comprovante',
     'Status Entrega',
     'Data/Hora Entrega',
+    'Status Baixa Estoque',
+    'Data/Hora Baixa Estoque',
     'Cliente Específico Reserva',
     'Motivo Exceção Reserva'
   ];
@@ -1697,7 +1777,9 @@ function ensureItemsSheet_() {
     'Motivo Exceção Reserva',
     'Abate Reserva Global',
     'Status Entrega Item',
-    'Data/Hora Entrega Item'
+    'Data/Hora Entrega Item',
+    'Status Baixa Item',
+    'Data/Hora Baixa Item'
   ]);
 }
 

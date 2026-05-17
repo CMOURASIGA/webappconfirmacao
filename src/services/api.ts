@@ -1,6 +1,7 @@
 import type {
   BootstrapData,
   DashboardData,
+  MarkOrderStockSettledResult,
   SettleReplenishmentResult,
   SubmitOrderPayload,
   SubmitOrderResult,
@@ -72,6 +73,10 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 
 export async function markOrderDelivered(requestId: string): Promise<{ success: boolean; requestId: string; deliveredAt: string }> {
   return callGas<{ success: boolean; requestId: string; deliveredAt: string }>('markOrderDelivered', { requestId });
+}
+
+export async function markOrderStockSettled(requestId: string): Promise<MarkOrderStockSettledResult> {
+  return callGas<MarkOrderStockSettledResult>('markOrderStockSettled', { requestId });
 }
 
 export async function settleReplenishment(

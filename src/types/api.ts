@@ -71,6 +71,8 @@ export interface DashboardOrderItem {
   alternativaSugerida: string;
   statusEntregaItem?: string;
   entregueItemEm?: string;
+  statusBaixaItem?: string;
+  baixaItemEm?: string;
 }
 
 export interface SettleReplenishmentResult {
@@ -98,6 +100,8 @@ export interface DashboardOrder {
   statusGeral: string;
   statusEntrega: string;
   entregueEm: string;
+  statusBaixaEstoque?: string;
+  baixaEstoqueEm?: string;
   items: DashboardOrderItem[];
 }
 
@@ -123,4 +127,10 @@ export interface DashboardData {
   };
   tabelaGerencial: DashboardRow[];
   pedidos: DashboardOrder[];
+}
+
+export interface MarkOrderStockSettledResult {
+  success: boolean;
+  requestId: string;
+  stockSettledAt: string;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MOCK_STOCK } from '../data/mockData';
-import { fetchDashboardData, isMockApiEnabled, markOrderDelivered, settleReplenishment } from '../services/api';
+import { fetchDashboardData, isMockApiEnabled, markOrderDelivered, markOrderStockSettled, settleReplenishment } from '../services/api';
 import type { DashboardData, DashboardOrder } from '../types/api';
 
 function buildMockDashboardData(): DashboardData {
@@ -62,9 +62,11 @@ function buildMockDashboardData(): DashboardData {
         statusGeral: 'RESERVADO',
         statusEntrega: 'PENDENTE',
         entregueEm: '',
+        statusBaixaEstoque: 'PENDENTE',
+        baixaEstoqueEm: '',
         items: [
-          { ordemItem: 1, tamanho: 'P', cor: 'Branca', quantidadeSolicitada: 1, quantidadeAtendida: 1, statusItem: 'RESERVADO', alternativaSugerida: '' },
-          { ordemItem: 2, tamanho: 'M', cor: 'Azul', quantidadeSolicitada: 1, quantidadeAtendida: 1, statusItem: 'RESERVADO', alternativaSugerida: '' },
+          { ordemItem: 1, tamanho: 'P', cor: 'Branca', quantidadeSolicitada: 1, quantidadeAtendida: 1, statusItem: 'RESERVADO', alternativaSugerida: '', statusBaixaItem: 'PENDENTE', baixaItemEm: '' },
+          { ordemItem: 2, tamanho: 'M', cor: 'Azul', quantidadeSolicitada: 1, quantidadeAtendida: 1, statusItem: 'RESERVADO', alternativaSugerida: '', statusBaixaItem: 'PENDENTE', baixaItemEm: '' },
         ],
       },
       {
@@ -77,8 +79,10 @@ function buildMockDashboardData(): DashboardData {
         statusGeral: 'SUGERIR ALTERNATIVA',
         statusEntrega: 'ENTREGUE',
         entregueEm: '16/04/2026 18:42:00',
+        statusBaixaEstoque: 'CONFIRMADA',
+        baixaEstoqueEm: '16/04/2026 12:42:00',
         items: [
-          { ordemItem: 1, tamanho: 'GG', cor: 'Preta', quantidadeSolicitada: 2, quantidadeAtendida: 0, statusItem: 'SUGERIR ALTERNATIVA', alternativaSugerida: 'XG | Preta' },
+          { ordemItem: 1, tamanho: 'GG', cor: 'Preta', quantidadeSolicitada: 2, quantidadeAtendida: 0, statusItem: 'SUGERIR ALTERNATIVA', alternativaSugerida: 'XG | Preta', statusBaixaItem: 'CONFIRMADA', baixaItemEm: '16/04/2026 12:42:00' },
         ],
       },
     ],
@@ -268,6 +272,7 @@ export default function Dashboard() {
   const [searchName, setSearchName] = useState('');
   const [orderSort, setOrderSort] = useState<'oldest' | 'newest'>('oldest');
   const [deliveringId, setDeliveringId] = useState<string | null>(null);
+  const [stockSettlingId, setStockSettlingId] = useState<string | null>(null);
   const [settlingKey, setSettlingKey] = useState<string | null>(null);
   const [filterIndicator, setFilterIndicator] = useState<FilterIndicator>(null);
   const [colorFilter, setColorFilter] = useState('');
@@ -464,6 +469,64 @@ export default function Dashboard() {
       setError(err instanceof Error ? err.message : 'Falha ao marcar pedido como entregue.');
     } finally {
       setDeliveringId(null);
+    }
+  };
+
+  const handleMarkStockSettled = async (order: DashboardOrder) => {
+    setError(null);
+    setStockSettlingId(order.requestId);
+
+    try {
+      if (isMockApiEnabled()) {
+        const now = new Date().toLocaleString('pt-BR');
+        setData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            pedidos: prev.pedidos.map((item) =>
+              item.requestId === order.requestId
+                ? {
+                    ...item,
+                    statusBaixaEstoque: 'CONFIRMADA',
+                    baixaEstoqueEm: now,
+                    items: item.items.map((currentItem) => ({
+                      ...currentItem,
+                      statusBaixaItem: 'CONFIRMADA',
+                      baixaItemEm: now,
+                    })),
+                  }
+                : item,
+            ),
+          };
+        });
+        return;
+      }
+
+      const result = await markOrderStockSettled(order.requestId);
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          pedidos: prev.pedidos.map((item) =>
+            item.requestId === result.requestId
+              ? {
+                  ...item,
+                  statusBaixaEstoque: 'CONFIRMADA',
+                  baixaEstoqueEm: result.stockSettledAt,
+                  items: item.items.map((currentItem) => ({
+                    ...currentItem,
+                    statusBaixaItem: 'CONFIRMADA',
+                    baixaItemEm: result.stockSettledAt,
+                  })),
+                }
+              : item,
+          ),
+        };
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao confirmar baixa de estoque.');
+    } finally {
+      setStockSettlingId(null);
     }
   };
 
@@ -832,6 +895,8 @@ export default function Dashboard() {
               {filteredOrders.map((order) => {
                 const isDelivered = order.statusEntrega === 'ENTREGUE';
                 const isDelivering = deliveringId === order.requestId;
+                const isStockSettled = order.statusBaixaEstoque === 'CONFIRMADA';
+                const isStockSettling = stockSettlingId === order.requestId;
 
                 return (
                   <div key={order.requestId} className="border border-border-color rounded-[12px] p-4 bg-white">
@@ -847,9 +912,20 @@ export default function Dashboard() {
                       </div>
 
                       <div className="flex flex-col items-start lg:items-end gap-2">
+                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${isStockSettled ? 'bg-[#e4f5ed] text-[#065f46]' : 'bg-[#eff6ff] text-[#1d4ed8]'}`}>
+                          Baixa estoque: {order.statusBaixaEstoque || 'PENDENTE'}
+                        </span>
                         <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${isDelivered ? 'bg-[#e4f5ed] text-[#065f46]' : 'bg-[#fff7ed] text-[#9a3412]'}`}>
                           Entrega: {order.statusEntrega}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => handleMarkStockSettled(order)}
+                          disabled={isStockSettled || isStockSettling}
+                          className="border border-[#1d4ed8] cursor-pointer bg-white text-[#1d4ed8] px-4 py-2 rounded-[8px] font-bold text-[12px] disabled:border-[#cbd5e1] disabled:text-[#94a3b8] disabled:cursor-not-allowed"
+                        >
+                          {isStockSettled ? 'Baixa confirmada' : isStockSettling ? 'Salvando...' : 'Confirmar baixa estoque'}
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleMarkAsDelivered(order)}
@@ -870,6 +946,11 @@ export default function Dashboard() {
                     {order.entregueEm && (
                       <div className="mt-1 text-[12px] text-text-muted">
                         Entregue em: {order.entregueEm}
+                      </div>
+                    )}
+                    {order.baixaEstoqueEm && (
+                      <div className="mt-1 text-[12px] text-text-muted">
+                        Baixa de estoque em: {order.baixaEstoqueEm}
                       </div>
                     )}
 
