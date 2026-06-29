@@ -18,26 +18,27 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function PixCard({
   title,
-  value,
   accent,
   onCopy,
 }: {
   title: string;
-  value: string;
   accent: string;
   onCopy: () => void;
 }) {
   return (
     <div className={`rounded-[22px] border border-white/10 bg-gradient-to-br ${accent} p-4 text-white shadow-lg`}>
       <div className="text-[11px] uppercase tracking-[0.24em] text-white/70">{title}</div>
-      <div className="mt-2 break-all text-[15px] font-semibold leading-6">{value}</div>
+      <div className="mt-2 text-[15px] font-semibold leading-6 text-white/95">
+        <div className="text-[14px] uppercase tracking-[0.18em] text-white/55">Chave protegida</div>
+        <div className="mt-2">Disponível para cópia no botão abaixo.</div>
+      </div>
       <button
         type="button"
         onClick={onCopy}
         className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[12px] font-semibold transition hover:bg-white/15"
       >
         <Copy size={14} />
-        Copiar PIX
+        Copiar chave
       </button>
     </div>
   );
@@ -252,13 +253,11 @@ export default function PublicConfirmationForm() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <PixCard
                     title="PIX Adulto"
-                    value={selectedEvent?.pix_adulto || 'Selecione um evento'}
                     accent="from-[#0b4f7a] to-[#083654]"
                     onCopy={() => selectedEvent && handleCopy('PIX Adulto', selectedEvent.pix_adulto)}
                   />
                   <PixCard
                     title="PIX Adolescente"
-                    value={selectedEvent?.pix_adolescente || 'Selecione um evento'}
                     accent="from-[#c81e2f] to-[#7f1220]"
                     onCopy={() => selectedEvent && handleCopy('PIX Adolescente', selectedEvent.pix_adolescente)}
                   />
@@ -266,8 +265,8 @@ export default function PublicConfirmationForm() {
               </div>
 
               <div className="mt-5 rounded-[22px] border border-[#c81e2f]/20 bg-[#0b4f7a]/10 p-4 text-white">
-                <div className="text-[12px] font-semibold uppercase tracking-[0.22em] text-[#0b4f7a]">Aviso</div>
-                <ul className="mt-3 space-y-2 text-[14px] leading-6 text-slate-800">
+                <div className="text-[12px] font-semibold uppercase tracking-[0.22em] text-white">Aviso</div>
+                <ul className="mt-3 space-y-2 text-[14px] leading-6 text-white/90">
                   <li>1. Escolha o evento.</li>
                   <li>2. Copie a chave PIX correta: Adulto ou Adolescente.</li>
                   <li>3. Faça o pagamento.</li>
