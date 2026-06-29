@@ -1,26 +1,71 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
-@import "tailwindcss";
+﻿@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700;800&family=Source+Sans+3:wght@400;600;700;800&display=swap');
+@import 'tailwindcss';
 
 @theme {
-  --color-primary: #0F4C81;
-  --color-primary-dark: #0B3B64;
-  --color-primary-light: #E6EFF7;
-  --color-accent: #FF4E00;
-  --color-background: #F4F7FA;
-  --color-surface: #FFFFFF;
-  --color-text-main: #1A1C1E;
-  --color-text-muted: #6C757D;
-  --color-border-color: #E0E4E9;
-  --color-success: #28a745;
-  --color-danger: #dc3545;
-  --color-warning: #ffc107;
+  --color-primary: #0b4f7a;
+  --color-primary-dark: #c81e2f;
+  --color-primary-light: #e8f2f8;
+  --color-accent: #083654;
+  --color-background: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-text-main: #083654;
+  --color-text-muted: #64748b;
+  --color-border-color: #dbe2ea;
+  --color-success: #16a34a;
+  --color-danger: #e11d48;
+  --color-warning: #ca8a04;
+}
+
+:root {
+  color-scheme: light;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(11, 79, 122, 0.15), transparent 26%),
+    radial-gradient(circle at top right, rgba(200, 30, 47, 0.10), transparent 24%),
+    linear-gradient(180deg, #0b4f7a 0%, #f5f7fb 32%, #f5f7fb 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
 }
 
 body {
-  background-color: var(--color-background);
-  color: var(--color-text-main);
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  min-height: 100vh;
   margin: 0;
-  padding: 0;
+  color: var(--color-text-main);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  background: inherit;
   overflow-x: hidden;
 }
+
+h1,
+h2,
+h3,
+h4,
+button,
+select,
+input,
+textarea {
+  font-family: 'Space Grotesk', 'Source Sans 3', system-ui, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  outline: none;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+}
+
+

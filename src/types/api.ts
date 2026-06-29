@@ -1,4 +1,4 @@
-export interface StockOptionRow {
+﻿export interface StockOptionRow {
   tamanho: string;
   cor: string;
   quantidade: number;
@@ -133,3 +133,111 @@ export interface MarkOrderStockSettledResult {
   requestId: string;
   stockSettledAt: string;
 }
+
+export interface EventConfig {
+  evento_id: string;
+  nome_evento: string;
+  data_evento: string;
+  pix_adulto: string;
+  pix_adolescente: string;
+  ativo: 'Sim' | 'Não';
+  criado_em?: string;
+  atualizado_em?: string;
+}
+
+export interface PublicBootstrapData {
+  events: EventConfig[];
+  allowedExtensions: string[];
+}
+
+export interface ProofFilePayload {
+  name: string;
+  type: string;
+  size: number;
+  base64: string;
+}
+
+export interface SubmitConfirmationPayload {
+  evento_id: string;
+  nome_completo: string;
+  telefone: string;
+  tipo_participante: 'Adulto' | 'Adolescente';
+  proofFile: ProofFilePayload;
+}
+
+export interface AdminSubmitConfirmationPayload {
+  adminToken: string;
+  evento_id: string;
+  nome_completo: string;
+  telefone: string;
+  tipo_participante: 'Adulto' | 'Adolescente';
+  observacao?: string;
+  proofFile?: ProofFilePayload | null;
+}
+
+export interface AdminSaveEventPayload {
+  adminToken: string;
+  evento_id?: string;
+  nome_evento: string;
+  data_evento: string;
+  pix_adulto: string;
+  pix_adolescente: string;
+  ativo: 'Sim' | 'Não';
+}
+
+export interface AdminToggleEventStatusPayload {
+  adminToken: string;
+  evento_id: string;
+}
+
+export interface ConfirmationRecord {
+  confirmacao_id: string;
+  data_hora: string;
+  evento_id: string;
+  nome_evento: string;
+  data_evento: string;
+  nome_completo: string;
+  telefone: string;
+  tipo_participante: 'Adulto' | 'Adolescente';
+  chave_pix_utilizada: string;
+  nome_arquivo_comprovante?: string;
+  link_comprovante?: string;
+  origem_registro: 'Publico' | 'Admin';
+  registrado_por_admin: 'Sim' | 'Não';
+  status_confirmacao: 'Confirmado' | 'Registrado pelo Admin' | 'Pendente de Comprovante';
+  observacao?: string;
+  criado_em?: string;
+  atualizado_em?: string;
+}
+
+export interface AdminListConfirmationsPayload {
+  adminToken: string;
+  filters?: {
+    evento_id?: string;
+    tipo_participante?: 'Adulto' | 'Adolescente' | '';
+    search?: string;
+    telefone?: string;
+    status?: string;
+  };
+}
+
+export interface AdminLoginResult {
+  success: boolean;
+  adminToken: string;
+  expiresAt: string;
+  message: string;
+}
+
+export interface AdminValidateTokenResult {
+  valid: boolean;
+  expiresAt?: string;
+}
+
+export interface AdminListEventsResult {
+  events: EventConfig[];
+}
+
+export interface AdminListConfirmationsResult {
+  confirmations: ConfirmationRecord[];
+}
+
