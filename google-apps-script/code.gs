@@ -271,8 +271,6 @@ function submitConfirmation_(payload, isAdmin) {
   var proofInfo = null;
   if (normalized.proofFile) {
     proofInfo = saveProofFile_(normalized.proofFile, normalized.evento_id, normalized.nome_completo);
-  } else if (!isAdmin) {
-    throw new Error('Para confirmar sua participacao, anexe o comprovante de pagamento.');
   }
 
   var confirmationId = generateId_('CONF');

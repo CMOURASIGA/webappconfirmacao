@@ -198,7 +198,9 @@ export async function downloadConfirmationImage(data: ConfirmationImageData) {
   ctx.font = '500 22px sans-serif';
   const lines = wrapText(
     ctx,
-    'Salve esta imagem no seu celular e compartilhe pelos meios que desejar. O comprovante também foi registrado no sistema.',
+    data.proofUrl
+      ? 'Salve esta imagem no seu celular e compartilhe pelos meios que desejar. O comprovante também foi registrado no sistema.'
+      : 'Salve esta imagem no seu celular e compartilhe pelos meios que desejar.',
     840,
   );
   lines.forEach((line, index) => ctx.fillText(line, 120, 955 + index * 30));

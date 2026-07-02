@@ -168,9 +168,7 @@ function validatePhone(phone: string) {
 }
 
 function ensureAllowedFile(proofFile: { name: string; size: number } | null | undefined) {
-  if (!proofFile) {
-    throw new Error('O comprovante Ã© obrigatÃ³rio.');
-  }
+  if (!proofFile) return;
   const ext = String(proofFile.name || '').split('.').pop()?.toLowerCase() || '';
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
     throw new Error('Arquivo invÃ¡lido. Envie PDF, JPG, JPEG ou PNG.');
@@ -246,9 +244,7 @@ function submitConfirmationLike(
   if (tipo_participante !== 'Adulto' && tipo_participante !== 'Adolescente') {
     throw new Error('Tipo de participante invÃ¡lido.');
   }
-  if (origin === 'Publico') {
-    ensureAllowedFile(proofFile);
-  } else if (proofFile) {
+  if (origin === 'Publico' || proofFile) {
     ensureAllowedFile(proofFile);
   }
 

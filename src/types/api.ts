@@ -162,7 +162,7 @@ export interface SubmitConfirmationPayload {
   nome_completo: string;
   telefone: string;
   tipo_participante: 'Adulto' | 'Adolescente';
-  proofFile: ProofFilePayload;
+  proofFile?: ProofFilePayload | null;
 }
 
 export interface AdminSubmitConfirmationPayload {

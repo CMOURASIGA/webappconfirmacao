@@ -128,32 +128,30 @@ export default function PublicConfirmationForm() {
       return;
     }
 
-    if (!proofFile) {
-      setMessage({ type: 'error', text: 'Para confirmar sua participação, anexe o comprovante de pagamento.' });
-      return;
-    }
-
-    const ext = proofFile.name.split('.').pop()?.toLowerCase() || '';
     const allowed = bootstrap?.allowedExtensions || ['pdf', 'jpg', 'jpeg', 'png'];
-    if (!allowed.includes(ext)) {
-      setMessage({ type: 'error', text: `Arquivo inválido. Use: ${allowed.join(', ').toUpperCase()}.` });
-      return;
-    }
+    let proofFilePayload: ProofFilePayload | null = null;
+    if (proofFile) {
+      const ext = proofFile.name.split('.').pop()?.toLowerCase() || '';
+      if (!allowed.includes(ext)) {
+        setMessage({ type: 'error', text: `Arquivo inválido. Use: ${allowed.join(', ').toUpperCase()}.` });
+        return;
+      }
 
-    if (proofFile.size > 10 * 1024 * 1024) {
-      setMessage({ type: 'error', text: 'O comprovante excede 10 MB.' });
-      return;
-    }
+      if (proofFile.size > 10 * 1024 * 1024) {
+        setMessage({ type: 'error', text: 'O comprovante excede 10 MB.' });
+        return;
+      }
 
-    setSubmitting(true);
-    try {
-      const proofFilePayload: ProofFilePayload = {
+      proofFilePayload = {
         name: proofFile.name,
         type: proofFile.type,
         size: proofFile.size,
         base64: await fileToBase64(proofFile),
       };
+    }
 
+    setSubmitting(true);
+    try {
       const response = await submitConfirmation({
         evento_id: selectedEvent.evento_id,
         nome_completo: normalizedName,
@@ -215,13 +213,13 @@ export default function PublicConfirmationForm() {
               Faça o PIX, copie a chave certa e confirme sua participação.
             </h1>
             <p className="mt-4 max-w-2xl text-[16px] leading-7 text-white/70 md:text-[17px]">
-              A confirmação só deve ser enviada após o pagamento via PIX. Escolha a chave correta, faça o PIX e anexe o comprovante no final do formulário.
+              A confirmação só deve ser enviada após o pagamento via PIX. Escolha a chave correta, faça o PIX e, se desejar, anexe o comprovante no final do formulário.
             </p>
           </div>
 
           <div className="grid gap-4 px-6 py-6 md:grid-cols-3 md:px-8">
             <Stat label="Fluxo" value="PIX antes" />
-            <Stat label="Anexo" value="Obrigatório" />
+            <Stat label="Anexo" value="Opcional" />
             <Stat label="Acesso" value="Sem login" />
           </div>
 
@@ -271,7 +269,7 @@ export default function PublicConfirmationForm() {
                   <li>2. Copie a chave PIX correta: Adulto ou Adolescente.</li>
                   <li>3. Faça o pagamento.</li>
                   <li>4. Preencha seus dados.</li>
-                  <li>5. Anexe o comprovante.</li>
+                  <li>5. Se quiser, anexe o comprovante.</li>
                   <li>6. Confirme sua participação.</li>
                 </ul>
               </div>
@@ -351,7 +349,7 @@ export default function PublicConfirmationForm() {
               <label className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center transition hover:border-[#0b4f7a] hover:bg-sky-50/60">
                 <Upload size={24} className="text-slate-500" />
                 <span className="mt-3 text-[15px] font-semibold text-slate-900">{proofFile ? proofFile.name : 'Clique para anexar PDF, JPG, JPEG ou PNG'}</span>
-                <span className="mt-1 text-[12px] text-slate-500">Obrigatório para confirmação pública. Máximo 10 MB.</span>
+                <span className="mt-1 text-[12px] text-slate-500">Opcional. Se enviar, o limite é de 10 MB.</span>
                 <input
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
