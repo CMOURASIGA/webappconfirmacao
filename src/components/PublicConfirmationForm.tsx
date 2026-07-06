@@ -489,11 +489,11 @@ export default function PublicConfirmationForm() {
                   type="tel"
                   value={telefone}
                   onChange={(e) => setTelefone(normalizePhoneInput(e.target.value))}
-                  placeholder="5521999999999"
+                  placeholder="21999999999 ou 5521999999999"
                   className="ml-3 w-full bg-transparent text-[15px] text-slate-950 outline-none"
                 />
               </div>
-              <div className="mt-2 text-[12px] text-slate-500">Informe o telefone no formato 55DDXXXXXXXXX. Ele será usado em todas as linhas geradas.</div>
+              <div className="mt-2 text-[12px] text-slate-500">Informe `DDD + número` ou `55DDXXXXXXXXX`. Se você digitar só `DDD + número`, o sistema completa com `55` automaticamente.</div>
             </div>
 
             <div>

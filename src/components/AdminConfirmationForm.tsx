@@ -158,8 +158,9 @@ export default function AdminConfirmationForm({
           <label className="text-[12px] font-semibold uppercase tracking-[0.22em] text-slate-500">Telefone</label>
           <div className="mt-2 flex items-center rounded-[18px] border border-slate-200 bg-white px-4 py-3">
             <Phone size={18} className="text-slate-400" />
-            <input value={telefone} onChange={(e) => setTelefone(normalizePhoneInput(e.target.value))} className="ml-3 w-full bg-transparent text-[15px] outline-none" />
+            <input value={telefone} onChange={(e) => setTelefone(normalizePhoneInput(e.target.value))} placeholder="21999999999 ou 5521999999999" className="ml-3 w-full bg-transparent text-[15px] outline-none" />
           </div>
+          <div className="mt-2 text-[12px] text-slate-500">Se informar apenas `DDD + número`, o sistema completa com `55` automaticamente.</div>
         </div>
 
         <div>

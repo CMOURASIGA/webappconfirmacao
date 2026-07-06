@@ -7,7 +7,11 @@ export function countWords(value: string) {
 }
 
 export function normalizePhoneInput(value: string) {
-  return String(value || '').replace(/\D/g, '');
+  const digits = String(value || '').replace(/\D/g, '');
+  if (/^\d{10,11}$/.test(digits) && !digits.startsWith('55')) {
+    return `55${digits}`;
+  }
+  return digits;
 }
 
 export function isValidPhone(value: string) {
