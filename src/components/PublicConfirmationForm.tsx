@@ -334,7 +334,7 @@ export default function PublicConfirmationForm() {
 
           <div className="px-6 pb-6 md:px-8 md:pb-8">
             <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 md:p-6">
-              <div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
                 <div>
                   <label className="text-[11px] font-semibold uppercase tracking-[0.26em] text-white/55">Escolha o evento</label>
                   <select
@@ -350,53 +350,53 @@ export default function PublicConfirmationForm() {
                       </option>
                     ))}
                   </select>
-
-                  <div className="mt-4 rounded-[22px] border border-white/10 bg-black/20 p-4">
-                    <div className="text-[11px] uppercase tracking-[0.26em] text-white/45">Evento selecionado</div>
-                    <div className="mt-2 text-[20px] font-bold text-white">{selectedEvent?.nome_evento || 'Nenhum evento selecionado'}</div>
-                    <div className="mt-2 text-[14px] text-white/65">Data do evento: {selectedEvent ? formatDate(selectedEvent.data_evento) : '-'}</div>
-                  </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                  <PixCard
-                    title="PIX Adulto"
-                    accent="from-[#0b4f7a] to-[#083654]"
-                    description="Use a chave específica do adulto quando a confirmação seguir a regra atual do evento."
-                    onCopy={() => {
-                      if (selectedEvent) {
-                        void copyToClipboard(selectedEvent.pix_adulto).then(() => {
-                          setCopiedTitle('PIX Adulto copiado.');
-                          setMessage({ type: 'success', text: 'Chave PIX copiada.' });
-                          window.setTimeout(() => setCopiedTitle(''), 1800);
-                        }).catch(() => {
-                          setMessage({ type: 'error', text: 'Nao foi possivel copiar a chave PIX.' });
-                        });
-                      }
-                    }}
-                  />
-                  <PixCard
-                    title="PIX Adolescente"
-                    accent="from-[#c81e2f] to-[#7f1220]"
-                    description="Use a chave específica do adolescente quando a confirmação seguir a regra atual do evento."
-                    onCopy={() => {
-                      if (selectedEvent) {
-                        void copyToClipboard(selectedEvent.pix_adolescente).then(() => {
-                          setCopiedTitle('PIX Adolescente copiado.');
-                          setMessage({ type: 'success', text: 'Chave PIX copiada.' });
-                          window.setTimeout(() => setCopiedTitle(''), 1800);
-                        }).catch(() => {
-                          setMessage({ type: 'error', text: 'Nao foi possivel copiar a chave PIX.' });
-                        });
-                      }
-                    }}
-                  />
-                  <FreeValuePixCard
-                    onCopy={() => {
-                      void handleFreeValueCopy();
-                    }}
-                  />
+                <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
+                  <div className="text-[11px] uppercase tracking-[0.26em] text-white/45">Evento selecionado</div>
+                  <div className="mt-2 text-[20px] font-bold text-white">{selectedEvent?.nome_evento || 'Nenhum evento selecionado'}</div>
+                  <div className="mt-2 text-[14px] text-white/65">Data do evento: {selectedEvent ? formatDate(selectedEvent.data_evento) : '-'}</div>
                 </div>
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <PixCard
+                  title="PIX Adulto"
+                  accent="from-[#0b4f7a] to-[#083654]"
+                  description="Use a chave específica do adulto quando a confirmação seguir a regra atual do evento."
+                  onCopy={() => {
+                    if (selectedEvent) {
+                      void copyToClipboard(selectedEvent.pix_adulto).then(() => {
+                        setCopiedTitle('PIX Adulto copiado.');
+                        setMessage({ type: 'success', text: 'Chave PIX copiada.' });
+                        window.setTimeout(() => setCopiedTitle(''), 1800);
+                      }).catch(() => {
+                        setMessage({ type: 'error', text: 'Nao foi possivel copiar a chave PIX.' });
+                      });
+                    }
+                  }}
+                />
+                <PixCard
+                  title="PIX Adolescente"
+                  accent="from-[#c81e2f] to-[#7f1220]"
+                  description="Use a chave específica do adolescente quando a confirmação seguir a regra atual do evento."
+                  onCopy={() => {
+                    if (selectedEvent) {
+                      void copyToClipboard(selectedEvent.pix_adolescente).then(() => {
+                        setCopiedTitle('PIX Adolescente copiado.');
+                        setMessage({ type: 'success', text: 'Chave PIX copiada.' });
+                        window.setTimeout(() => setCopiedTitle(''), 1800);
+                      }).catch(() => {
+                        setMessage({ type: 'error', text: 'Nao foi possivel copiar a chave PIX.' });
+                      });
+                    }
+                  }}
+                />
+                <FreeValuePixCard
+                  onCopy={() => {
+                    void handleFreeValueCopy();
+                  }}
+                />
               </div>
 
               {!loading && !events.length ? (
