@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { CheckCircle2, Copy, Loader2, Phone, Ticket, Upload, Users } from 'lucide-react';
+import { FREE_VALUE_PIX_BENEFICIARY, FREE_VALUE_PIX_KEY } from '../constants/pix';
 import { copyToClipboard, countWords, downloadConfirmationImage, fileToBase64, formatDate, isValidPhone, normalizePhoneInput, trimAndCollapseSpaces } from '../lib/confirmation';
 import { getPublicBootstrap, submitConfirmation } from '../services/api';
 import type { ConfirmationParticipantPayload, EventConfig, PublicBootstrapData, ProofFilePayload } from '../types/api';
@@ -27,29 +28,48 @@ function Stat({ label, value }: { label: string; value: string }) {
 function PixCard({
   title,
   accent,
-  disabled = false,
+  description,
   onCopy,
 }: {
   title: string;
   accent: string;
-  disabled?: boolean;
+  description: string;
   onCopy: () => void;
 }) {
   return (
     <div className={`rounded-[22px] border border-white/10 bg-gradient-to-br ${accent} p-4 text-white shadow-lg`}>
       <div className="text-[11px] uppercase tracking-[0.24em] text-white/70">{title}</div>
-      <div className="mt-2 text-[15px] font-semibold leading-6 text-white/95">
-        <div className="text-[14px] uppercase tracking-[0.18em] text-white/55">Chave protegida</div>
-        <div className="mt-2">Disponível para cópia no botão abaixo.</div>
+      <div className="mt-2 text-[15px] font-semibold leading-6 text-white/95">{description}</div>
+      <button
+        type="button"
+        onClick={onCopy}
+        className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[12px] font-semibold transition hover:bg-white/15"
+      >
+        <Copy size={14} />
+        Copiar chave
+      </button>
+    </div>
+  );
+}
+
+function FreeValuePixCard({ onCopy }: { onCopy: () => void }) {
+  return (
+    <div className="rounded-[22px] border border-white/10 bg-gradient-to-br from-[#14532d] via-[#15803d] to-[#14532d] p-4 text-white shadow-lg">
+      <div className="text-[11px] uppercase tracking-[0.24em] text-white/70">Pix com valor livre</div>
+      <div className="mt-2 text-[14px] uppercase tracking-[0.18em] text-white/55">Chave celular</div>
+      <div className="mt-2 break-all text-[22px] font-black leading-7 text-white">{FREE_VALUE_PIX_KEY}</div>
+      <div className="mt-3 text-[12px] uppercase tracking-[0.18em] text-white/55">Favorecido</div>
+      <div className="mt-2 text-[15px] font-semibold leading-6 text-white/95">{FREE_VALUE_PIX_BENEFICIARY}</div>
+      <div className="mt-3 text-[13px] leading-6 text-white/80">
+        Abra o aplicativo do seu banco, escolha Pix por chave celular, cole a chave e digite o valor desejado.
       </div>
       <button
         type="button"
         onClick={onCopy}
-        disabled={disabled}
-        className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[12px] font-semibold transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[12px] font-semibold transition hover:bg-white/15"
       >
         <Copy size={14} />
-        Copiar chave
+        Copiar chave Pix
       </button>
     </div>
   );
@@ -156,14 +176,14 @@ export default function PublicConfirmationForm() {
     )));
   };
 
-  const handleCopy = async (label: string, value: string) => {
+  const handleFreeValueCopy = async () => {
     try {
-      await copyToClipboard(value);
-      setCopiedTitle(label);
-      setMessage({ type: 'success', text: 'Chave PIX copiada.' });
+      await copyToClipboard(FREE_VALUE_PIX_KEY);
+      setCopiedTitle('Chave Pix copiada com sucesso.');
+      setMessage({ type: 'success', text: 'Chave Pix copiada com sucesso.' });
       window.setTimeout(() => setCopiedTitle(''), 1800);
     } catch {
-      setMessage({ type: 'error', text: 'Nao foi possivel copiar a chave PIX.' });
+      setMessage({ type: 'error', text: 'Nao foi possivel copiar a chave Pix.' });
     }
   };
 
@@ -338,25 +358,42 @@ export default function PublicConfirmationForm() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-3">
                   <PixCard
                     title="PIX Adulto"
                     accent="from-[#0b4f7a] to-[#083654]"
-                    disabled={!selectedEvent}
+                    description="Use a chave específica do adulto quando a confirmação seguir a regra atual."
                     onCopy={() => {
                       if (selectedEvent) {
-                        void handleCopy('PIX Adulto', selectedEvent.pix_adulto);
+                        void copyToClipboard(selectedEvent.pix_adulto).then(() => {
+                          setCopiedTitle('PIX Adulto copiado.');
+                          setMessage({ type: 'success', text: 'Chave PIX copiada.' });
+                          window.setTimeout(() => setCopiedTitle(''), 1800);
+                        }).catch(() => {
+                          setMessage({ type: 'error', text: 'Nao foi possivel copiar a chave PIX.' });
+                        });
                       }
                     }}
                   />
                   <PixCard
                     title="PIX Adolescente"
                     accent="from-[#c81e2f] to-[#7f1220]"
-                    disabled={!selectedEvent}
+                    description="Use a chave específica do adolescente quando a confirmação seguir a regra atual."
                     onCopy={() => {
                       if (selectedEvent) {
-                        void handleCopy('PIX Adolescente', selectedEvent.pix_adolescente);
+                        void copyToClipboard(selectedEvent.pix_adolescente).then(() => {
+                          setCopiedTitle('PIX Adolescente copiado.');
+                          setMessage({ type: 'success', text: 'Chave PIX copiada.' });
+                          window.setTimeout(() => setCopiedTitle(''), 1800);
+                        }).catch(() => {
+                          setMessage({ type: 'error', text: 'Nao foi possivel copiar a chave PIX.' });
+                        });
                       }
+                    }}
+                  />
+                  <FreeValuePixCard
+                    onCopy={() => {
+                      void handleFreeValueCopy();
                     }}
                   />
                 </div>
@@ -372,8 +409,8 @@ export default function PublicConfirmationForm() {
                 <div className="text-[12px] font-semibold uppercase tracking-[0.22em] text-white">Aviso</div>
                 <ul className="mt-3 space-y-2 text-[14px] leading-6 text-white/90">
                   <li>1. Escolha o evento.</li>
-                  <li>2. Copie a chave PIX correta: Adulto ou Adolescente.</li>
-                  <li>3. Faça o pagamento.</li>
+                  <li>2. Use a chave PIX Adulto ou Adolescente quando seguir a regra atual do evento.</li>
+                  <li>3. Se o valor for livre, use o novo Pix por chave celular e informe manualmente o valor.</li>
                   <li>4. Preencha seus dados.</li>
                   <li>5. Se quiser, anexe o comprovante.</li>
                   <li>6. Confirme sua participação.</li>
@@ -525,7 +562,7 @@ export default function PublicConfirmationForm() {
 
       {copiedTitle && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-[13px] font-semibold text-emerald-800 shadow-lg">
-          {copiedTitle} copiado.
+          {copiedTitle}
         </div>
       )}
 

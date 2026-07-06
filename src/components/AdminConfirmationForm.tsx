@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Loader2, MessageSquareText, Phone, Upload, Users } from 'lucide-react';
+import { FREE_VALUE_PIX_BENEFICIARY, FREE_VALUE_PIX_KEY } from '../constants/pix';
 import { copyToClipboard, countWords, fileToBase64, isValidPhone, normalizePhoneInput, trimAndCollapseSpaces } from '../lib/confirmation';
 import type { EventConfig, ProofFilePayload } from '../types/api';
 
@@ -36,13 +37,13 @@ export default function AdminConfirmationForm({
 
   const event = useMemo(() => events.find((item) => item.evento_id === selectedEventId), [events, selectedEventId]);
 
-  const handleCopy = async (label: string, value: string) => {
+  const handleCopy = async () => {
     try {
-      await copyToClipboard(value);
-      setCopied(label);
+      await copyToClipboard(FREE_VALUE_PIX_KEY);
+      setCopied('Chave Pix copiada com sucesso.');
       window.setTimeout(() => setCopied(''), 1600);
     } catch {
-      setError('Nao foi possivel copiar a chave PIX.');
+      setError('Nao foi possivel copiar a chave Pix.');
     }
   };
 
@@ -120,20 +121,35 @@ export default function AdminConfirmationForm({
             <div className="mt-2 text-[18px] font-bold text-slate-950">{event.nome_evento}</div>
             <div className="mt-1 text-[13px] text-slate-500">{event.data_evento}</div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button type="button" onClick={() => handleCopy('PIX adulto', event.pix_adulto)} className="rounded-[22px] border border-slate-200 bg-white p-4 text-left">
-              <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">PIX adulto</div>
-              <div className="mt-2 break-all text-[14px] font-semibold text-slate-950">{event.pix_adulto}</div>
-            </button>
-            <button type="button" onClick={() => handleCopy('PIX adolescente', event.pix_adolescente)} className="rounded-[22px] border border-slate-200 bg-white p-4 text-left">
-              <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">PIX adolescente</div>
-              <div className="mt-2 break-all text-[14px] font-semibold text-slate-950">{event.pix_adolescente}</div>
-            </button>
+          <div className="grid gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button type="button" onClick={() => void copyToClipboard(event.pix_adulto).then(() => { setCopied('Chave PIX copiada.'); window.setTimeout(() => setCopied(''), 1600); }).catch(() => setError('Nao foi possivel copiar a chave PIX.'))} className="rounded-[22px] border border-slate-200 bg-white p-4 text-left">
+                <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">PIX adulto</div>
+                <div className="mt-2 break-all text-[14px] font-semibold text-slate-950">{event.pix_adulto}</div>
+              </button>
+              <button type="button" onClick={() => void copyToClipboard(event.pix_adolescente).then(() => { setCopied('Chave PIX copiada.'); window.setTimeout(() => setCopied(''), 1600); }).catch(() => setError('Nao foi possivel copiar a chave PIX.'))} className="rounded-[22px] border border-slate-200 bg-white p-4 text-left">
+                <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">PIX adolescente</div>
+                <div className="mt-2 break-all text-[14px] font-semibold text-slate-950">{event.pix_adolescente}</div>
+              </button>
+            </div>
+            <div className="rounded-[22px] border border-slate-200 bg-white p-4">
+              <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Pix com valor livre</div>
+              <div className="mt-2 text-[13px] uppercase tracking-[0.18em] text-slate-500">Chave celular</div>
+              <div className="mt-2 break-all text-[18px] font-black text-slate-950">{FREE_VALUE_PIX_KEY}</div>
+              <div className="mt-3 text-[11px] uppercase tracking-[0.18em] text-slate-500">Favorecido</div>
+              <div className="mt-2 text-[14px] font-semibold text-slate-950">{FREE_VALUE_PIX_BENEFICIARY}</div>
+              <div className="mt-3 text-[13px] leading-6 text-slate-600">
+                Abra o aplicativo do banco, escolha Pix por chave celular, cole a chave e informe manualmente o valor.
+              </div>
+              <button type="button" onClick={() => void handleCopy()} className="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-[12px] font-semibold text-slate-900">
+                Copiar chave Pix
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
 
-      {copied ? <div className="mt-4 rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[14px] text-emerald-700">Chave PIX copiada.</div> : null}
+      {copied ? <div className="mt-4 rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[14px] text-emerald-700">{copied}</div> : null}
 
       {error ? <div className="mt-4 rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-3 text-[14px] text-rose-700">{error}</div> : null}
 
