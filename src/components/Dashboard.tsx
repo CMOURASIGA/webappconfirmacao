@@ -169,8 +169,8 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {data.tabelaGerencial.map((row, idx) => (
-                  <tr key={`${row.tamanho}-${row.cor}-${idx}`} className="border-b border-border-color last:border-0">
+                {data.tabelaGerencial.map((row) => (
+                  <tr key={`${row.tamanho}-${row.cor}`} className="border-b border-border-color last:border-0">
                     <td className="p-4 font-medium">{row.tamanho}</td>
                     <td className="p-4">{row.cor}</td>
                     <td className="p-4">{row.quantidade}</td>
@@ -228,8 +228,8 @@ export default function Dashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {order.items.map((item, idx) => {
-                          const key = `${order.requestId}-${item.ordemItem || idx + 1}`;
+                        {order.items.map((item) => {
+                          const key = `${order.requestId}-${item.ordemItem}`;
                           return (
                             <tr key={key}>
                               <td className="p-2 border border-border-color">{item.tamanho} | {item.cor}</td>
@@ -238,7 +238,7 @@ export default function Dashboard() {
                               <td className="p-2 border border-border-color">{item.statusItem}</td>
                               <td className="p-2 border border-border-color">
                                 {isReplenishmentStatus(item.statusItem) ? (
-                                  <button type="button" onClick={() => handleSettleReplenishment(order, item.ordemItem || idx + 1)} disabled={settlingKey === key} className="border-none bg-[#1d4ed8] text-white px-2.5 py-1.5 rounded-[6px] font-bold text-[11px] disabled:opacity-50">{settlingKey === key ? 'Quitando...' : 'Quitar reposicao'}</button>
+                                  <button type="button" onClick={() => handleSettleReplenishment(order, item.ordemItem)} disabled={settlingKey === key} className="border-none bg-[#1d4ed8] text-white px-2.5 py-1.5 rounded-[6px] font-bold text-[11px] disabled:opacity-50">{settlingKey === key ? 'Quitando...' : 'Quitar reposicao'}</button>
                                 ) : (
                                   <span className="text-text-muted">-</span>
                                 )}

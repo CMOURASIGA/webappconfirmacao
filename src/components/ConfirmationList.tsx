@@ -25,17 +25,19 @@ export default function ConfirmationList({
   const [search, setSearch] = useState('');
   const [telefone, setTelefone] = useState('');
   const [status, setStatus] = useState('');
+  const safeEvents = Array.isArray(events) ? events : [];
+  const safeConfirmations = Array.isArray(confirmations) ? confirmations : [];
 
   const indicators = useMemo(() => {
-    const total = confirmations.length;
-    const totalAdulto = confirmations.filter((item) => item.tipo_participante === 'Adulto').length;
-    const totalAdolescente = confirmations.filter((item) => item.tipo_participante === 'Adolescente').length;
-    const totalComComprovante = confirmations.filter((item) => item.link_comprovante).length;
-    const totalSemComprovante = confirmations.filter((item) => !item.link_comprovante).length;
-    const totalAdmin = confirmations.filter((item) => item.origem_registro === 'Admin').length;
+    const total = safeConfirmations.length;
+    const totalAdulto = safeConfirmations.filter((item) => item.tipo_participante === 'Adulto').length;
+    const totalAdolescente = safeConfirmations.filter((item) => item.tipo_participante === 'Adolescente').length;
+    const totalComComprovante = safeConfirmations.filter((item) => item.link_comprovante).length;
+    const totalSemComprovante = safeConfirmations.filter((item) => !item.link_comprovante).length;
+    const totalAdmin = safeConfirmations.filter((item) => item.origem_registro === 'Admin').length;
 
     return { total, totalAdulto, totalAdolescente, totalComComprovante, totalSemComprovante, totalAdmin };
-  }, [confirmations]);
+  }, [safeConfirmations]);
 
   const handleFilter = async () => {
     await onRefresh({
@@ -76,7 +78,7 @@ export default function ConfirmationList({
           <label className="text-[12px] font-semibold uppercase tracking-[0.22em] text-slate-500">Evento</label>
           <select value={eventoId} onChange={(e) => setEventoId(e.target.value)} className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-[15px] outline-none transition focus:border-[#0b4f7a]">
             <option value="">Todos</option>
-            {events.map((event) => (
+            {safeEvents.map((event) => (
               <option key={event.evento_id} value={event.evento_id}>{event.nome_evento}</option>
             ))}
           </select>
@@ -121,7 +123,7 @@ export default function ConfirmationList({
             <tbody>
               {loading ? (
                 <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Carregando confirmações...</td></tr>
-              ) : confirmations.length ? confirmations.map((item) => (
+              ) : safeConfirmations.length ? safeConfirmations.map((item) => (
                 <tr key={item.confirmacao_id} className="border-t border-slate-200">
                   <td className="px-4 py-4 text-slate-600">{formatDateTime(item.data_hora)}</td>
                   <td className="px-4 py-4 font-semibold text-slate-950">{item.nome_evento}</td>

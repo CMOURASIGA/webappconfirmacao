@@ -26,13 +26,14 @@ export default function App() {
     );
   }
 
-  const [view, setView] = useState(() => resolveView(window.location.pathname, window.location.hash));
+  const [view, setView] = useState<'public' | 'admin'>('public');
 
   useEffect(() => {
     const updateView = () => {
       setView(resolveView(window.location.pathname, window.location.hash));
     };
 
+    updateView();
     window.addEventListener('popstate', updateView);
     window.addEventListener('hashchange', updateView);
 

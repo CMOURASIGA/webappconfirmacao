@@ -2,10 +2,18 @@
 import { CheckCircle2, Copy, Loader2, Phone, Ticket, Upload, Users } from 'lucide-react';
 import { copyToClipboard, countWords, downloadConfirmationImage, fileToBase64, formatDate, isValidPhone, normalizePhoneInput, trimAndCollapseSpaces } from '../lib/confirmation';
 import { getPublicBootstrap, submitConfirmation } from '../services/api';
-import type { EventConfig, PublicBootstrapData, ProofFilePayload } from '../types/api';
+import type { ConfirmationParticipantPayload, EventConfig, PublicBootstrapData, ProofFilePayload } from '../types/api';
 import BrandLogo from './BrandLogo';
 
 const initialPhone = '';
+const MAX_PARTICIPANTS = 10;
+
+function createParticipant(
+  nome_completo = '',
+  tipo_participante: 'Adulto' | 'Adolescente' = 'Adulto',
+): ConfirmationParticipantPayload {
+  return { nome_completo, tipo_participante };
+}
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -19,10 +27,12 @@ function Stat({ label, value }: { label: string; value: string }) {
 function PixCard({
   title,
   accent,
+  disabled = false,
   onCopy,
 }: {
   title: string;
   accent: string;
+  disabled?: boolean;
   onCopy: () => void;
 }) {
   return (
@@ -35,7 +45,8 @@ function PixCard({
       <button
         type="button"
         onClick={onCopy}
-        className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[12px] font-semibold transition hover:bg-white/15"
+        disabled={disabled}
+        className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[12px] font-semibold transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Copy size={14} />
         Copiar chave
@@ -49,21 +60,22 @@ export default function PublicConfirmationForm() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string } | null>(null);
   const [selectedEventId, setSelectedEventId] = useState('');
-  const [nomeCompleto, setNomeCompleto] = useState('');
+  const [participantCount, setParticipantCount] = useState(1);
+  const [participants, setParticipants] = useState<ConfirmationParticipantPayload[]>([createParticipant()]);
   const [telefone, setTelefone] = useState(initialPhone);
-  const [tipoParticipante, setTipoParticipante] = useState<'Adulto' | 'Adolescente'>('Adulto');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [copiedTitle, setCopiedTitle] = useState('');
-  const [success, setSuccess] = useState<{ open: boolean; confirmacao_id: string; proofUrl: string; nomeEvento: string; dataEvento: string; nomeCompleto: string; telefone: string; tipoParticipante: string }>({
+  const [success, setSuccess] = useState<{ open: boolean; confirmacao_id: string; confirmacaoIds: string[]; proofUrl: string; nomeEvento: string; dataEvento: string; nomesConfirmados: string[]; telefone: string; tiposParticipante: string[] }>({
     open: false,
     confirmacao_id: '',
+    confirmacaoIds: [],
     proofUrl: '',
     nomeEvento: '',
     dataEvento: '',
-    nomeCompleto: '',
+    nomesConfirmados: [],
     telefone: '',
-    tipoParticipante: '',
+    tiposParticipante: [],
   });
 
   useEffect(() => {
@@ -73,8 +85,23 @@ export default function PublicConfirmationForm() {
       try {
         const data = await getPublicBootstrap();
         if (!active) return;
-        setBootstrap(data);
-        setSelectedEventId(data.events[0]?.evento_id || '');
+        const normalizedEvents = Array.isArray(data?.events) ? data.events.filter(Boolean) : [];
+        const normalizedAllowedExtensions =
+          Array.isArray(data?.allowedExtensions) && data.allowedExtensions.length
+            ? data.allowedExtensions
+            : ['pdf', 'jpg', 'jpeg', 'png'];
+
+        setBootstrap({
+          events: normalizedEvents,
+          allowedExtensions: normalizedAllowedExtensions,
+        });
+
+        if (!normalizedEvents.length) {
+          setMessage({
+            type: 'info',
+            text: 'Nenhum evento ativo está disponível no momento.',
+          });
+        }
       } catch (error) {
         if (!active) return;
         setMessage({
@@ -92,8 +119,42 @@ export default function PublicConfirmationForm() {
     };
   }, []);
 
-  const events = bootstrap?.events || [];
+  const events = useMemo(() => (Array.isArray(bootstrap?.events) ? bootstrap.events : []), [bootstrap]);
   const selectedEvent = useMemo<EventConfig | undefined>(() => events.find((event) => event.evento_id === selectedEventId), [events, selectedEventId]);
+  const isGroupConfirmation = participantCount > 1;
+
+  useEffect(() => {
+    if (!events.length) {
+      if (selectedEventId) {
+        setSelectedEventId('');
+      }
+      return;
+    }
+
+    const stillAvailable = events.some((event) => event.evento_id === selectedEventId);
+    if (!selectedEventId || !stillAvailable) {
+      setSelectedEventId(events[0].evento_id);
+    }
+  }, [events, selectedEventId]);
+
+  useEffect(() => {
+    setParticipants((current) => {
+      const normalizedCount = Math.max(1, Math.min(MAX_PARTICIPANTS, participantCount));
+      const next = current.slice(0, normalizedCount);
+
+      while (next.length < normalizedCount) {
+        next.push(createParticipant());
+      }
+
+      return next;
+    });
+  }, [participantCount]);
+
+  const updateParticipant = (index: number, updates: Partial<ConfirmationParticipantPayload>) => {
+    setParticipants((current) => current.map((participant, currentIndex) => (
+      currentIndex === index ? { ...participant, ...updates } : participant
+    )));
+  };
 
   const handleCopy = async (label: string, value: string) => {
     try {
@@ -110,22 +171,34 @@ export default function PublicConfirmationForm() {
     event.preventDefault();
     setMessage(null);
 
-    const normalizedName = trimAndCollapseSpaces(nomeCompleto);
     const normalizedPhone = normalizePhoneInput(telefone);
+    const normalizedParticipants = participants
+      .slice(0, participantCount)
+      .map((participant) => ({
+        nome_completo: trimAndCollapseSpaces(participant.nome_completo),
+        tipo_participante: participant.tipo_participante,
+      }));
 
     if (!selectedEvent) {
       setMessage({ type: 'error', text: 'Selecione um evento.' });
       return;
     }
 
-    if (!normalizedName || countWords(normalizedName) < 2) {
-      setMessage({ type: 'error', text: 'Informe o nome completo com pelo menos duas palavras.' });
+    if (participantCount < 1 || participantCount > MAX_PARTICIPANTS) {
+      setMessage({ type: 'error', text: `Informe uma quantidade entre 1 e ${MAX_PARTICIPANTS} participantes.` });
       return;
     }
 
     if (!isValidPhone(normalizedPhone)) {
       setMessage({ type: 'error', text: 'Informe o telefone no formato 55DDXXXXXXXXX. Exemplo: 5521999999999.' });
       return;
+    }
+
+    for (let index = 0; index < normalizedParticipants.length; index += 1) {
+      if (!normalizedParticipants[index].nome_completo || countWords(normalizedParticipants[index].nome_completo) < 2) {
+        setMessage({ type: 'error', text: `Informe o nome completo do participante ${index + 1} com pelo menos duas palavras.` });
+        return;
+      }
     }
 
     const allowed = bootstrap?.allowedExtensions || ['pdf', 'jpg', 'jpeg', 'png'];
@@ -154,26 +227,33 @@ export default function PublicConfirmationForm() {
     try {
       const response = await submitConfirmation({
         evento_id: selectedEvent.evento_id,
-        nome_completo: normalizedName,
+        nome_completo: normalizedParticipants[0].nome_completo,
         telefone: normalizedPhone,
-        tipo_participante: tipoParticipante,
+        tipo_participante: normalizedParticipants[0].tipo_participante,
+        participants: normalizedParticipants,
         proofFile: proofFilePayload,
       });
 
       setSuccess({
         open: true,
         confirmacao_id: response.confirmacao_id,
+        confirmacaoIds: response.confirmacao_ids,
         proofUrl: response.proofUrl,
         nomeEvento: selectedEvent.nome_evento,
         dataEvento: selectedEvent.data_evento,
-        nomeCompleto: normalizedName,
+        nomesConfirmados: response.nomes_confirmados,
         telefone: normalizedPhone,
-        tipoParticipante,
+        tiposParticipante: normalizedParticipants.map((participant) => participant.tipo_participante),
       });
-      setMessage({ type: 'success', text: 'Confirmação registrada com sucesso. Obrigado por confirmar sua participação.' });
-      setNomeCompleto('');
+      setMessage({
+        type: 'success',
+        text: response.total_confirmacoes > 1
+          ? `${response.total_confirmacoes} confirmações registradas com sucesso.`
+          : 'Confirmação registrada com sucesso. Obrigado por confirmar sua participação.',
+      });
+      setParticipantCount(1);
+      setParticipants([createParticipant()]);
       setTelefone('');
-      setTipoParticipante('Adulto');
       setProofFile(null);
     } catch (error) {
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Falha ao enviar a confirmação.' });
@@ -188,12 +268,12 @@ export default function PublicConfirmationForm() {
         confirmacaoId: success.confirmacao_id,
         nomeEvento: success.nomeEvento,
         dataEvento: formatDate(success.dataEvento),
-        nomeCompleto: success.nomeCompleto,
+        nomeCompleto: success.nomesConfirmados.join(', '),
         telefone: success.telefone,
-        tipoParticipante: success.tipoParticipante,
+        tipoParticipante: success.tiposParticipante.length > 1 ? `${success.tiposParticipante.length} participantes` : (success.tiposParticipante[0] || ''),
         proofUrl: success.proofUrl,
       });
-      setSuccess({ open: false, confirmacao_id: '', proofUrl: '', nomeEvento: '', dataEvento: '', nomeCompleto: '', telefone: '', tipoParticipante: '' });
+      setSuccess({ open: false, confirmacao_id: '', confirmacaoIds: [], proofUrl: '', nomeEvento: '', dataEvento: '', nomesConfirmados: [], telefone: '', tiposParticipante: [] });
     } catch (error) {
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Falha ao salvar a confirmação.' });
     }
@@ -231,6 +311,7 @@ export default function PublicConfirmationForm() {
                   <select
                     value={selectedEventId}
                     onChange={(e) => setSelectedEventId(e.target.value)}
+                    disabled={!events.length}
                     className="mt-2 w-full rounded-[18px] border border-white/10 bg-white/10 px-4 py-3 text-[15px] text-white outline-none transition focus:border-[#1d71b8]"
                   >
                     <option value="">Selecione um evento</option>
@@ -252,15 +333,31 @@ export default function PublicConfirmationForm() {
                   <PixCard
                     title="PIX Adulto"
                     accent="from-[#0b4f7a] to-[#083654]"
-                    onCopy={() => selectedEvent && handleCopy('PIX Adulto', selectedEvent.pix_adulto)}
+                    disabled={!selectedEvent}
+                    onCopy={() => {
+                      if (selectedEvent) {
+                        void handleCopy('PIX Adulto', selectedEvent.pix_adulto);
+                      }
+                    }}
                   />
                   <PixCard
                     title="PIX Adolescente"
                     accent="from-[#c81e2f] to-[#7f1220]"
-                    onCopy={() => selectedEvent && handleCopy('PIX Adolescente', selectedEvent.pix_adolescente)}
+                    disabled={!selectedEvent}
+                    onCopy={() => {
+                      if (selectedEvent) {
+                        void handleCopy('PIX Adolescente', selectedEvent.pix_adolescente);
+                      }
+                    }}
                   />
                 </div>
               </div>
+
+              {!loading && !events.length ? (
+                <div className="mt-5 rounded-[22px] border border-amber-200 bg-amber-50 p-4 text-[14px] font-medium text-amber-900">
+                  Não há eventos ativos para exibir. Quando a API retornar um evento válido, as chaves PIX aparecerão aqui.
+                </div>
+              ) : null}
 
               <div className="mt-5 rounded-[22px] border border-[#c81e2f]/20 bg-[#0b4f7a]/10 p-4 text-white">
                 <div className="text-[12px] font-semibold uppercase tracking-[0.22em] text-white">Aviso</div>
@@ -303,18 +400,80 @@ export default function PublicConfirmationForm() {
 
           <form onSubmit={handleSubmit} className="mt-5 space-y-5">
             <div>
-              <label className="text-[12px] font-semibold uppercase tracking-[0.22em] text-slate-500">Nome completo</label>
+              <label className="text-[12px] font-semibold uppercase tracking-[0.22em] text-slate-500">Quantidade de confirmações</label>
               <input
-                type="text"
-                value={nomeCompleto}
-                onChange={(e) => setNomeCompleto(e.target.value)}
-                placeholder="Digite seu nome completo"
+                type="number"
+                min={1}
+                max={MAX_PARTICIPANTS}
+                value={participantCount}
+                onChange={(e) => setParticipantCount(Math.max(1, Math.min(MAX_PARTICIPANTS, Number(e.target.value) || 1)))}
                 className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-950 outline-none transition focus:border-[#0b4f7a]"
               />
+              <div className="mt-2 text-[12px] text-slate-500">Use de 1 a {MAX_PARTICIPANTS} participantes por confirmação.</div>
             </div>
 
             <div>
-              <label className="text-[12px] font-semibold uppercase tracking-[0.22em] text-slate-500">Telefone</label>
+              <label className="text-[12px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                {isGroupConfirmation ? 'Participantes' : 'Nome completo'}
+              </label>
+              {!isGroupConfirmation ? (
+                <input
+                  type="text"
+                  value={participants[0]?.nome_completo || ''}
+                  onChange={(e) => updateParticipant(0, { nome_completo: e.target.value })}
+                  placeholder="Digite seu nome completo"
+                  className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-950 outline-none transition focus:border-[#0b4f7a]"
+                />
+              ) : (
+                <div className="mt-2 space-y-3">
+                  {participants.slice(0, participantCount).map((participant, index) => (
+                    <div key={`participant-${index + 1}`} className="rounded-[20px] border border-slate-200 bg-slate-50 p-4">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Participante {index + 1}</div>
+                      <input
+                        type="text"
+                        value={participant.nome_completo}
+                        onChange={(e) => updateParticipant(index, { nome_completo: e.target.value })}
+                        placeholder={`Nome completo do participante ${index + 1}`}
+                        className="mt-3 w-full rounded-[16px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-950 outline-none transition focus:border-[#0b4f7a]"
+                      />
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        {(['Adulto', 'Adolescente'] as const).map((option) => (
+                          <button
+                            key={`${option}-${index + 1}`}
+                            type="button"
+                            onClick={() => updateParticipant(index, { tipo_participante: option })}
+                            className={`rounded-[16px] border px-4 py-3 text-[14px] font-semibold transition ${participant.tipo_participante === option ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'}`}
+                          >
+                            {option}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {!isGroupConfirmation ? (
+              <div>
+                <label className="text-[12px] font-semibold uppercase tracking-[0.22em] text-slate-500">Tipo de participante</label>
+                <div className="mt-2 grid grid-cols-2 gap-3">
+                  {(['Adulto', 'Adolescente'] as const).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => updateParticipant(0, { tipo_participante: option })}
+                      className={`rounded-[18px] border px-4 py-3 text-[15px] font-semibold transition ${participants[0]?.tipo_participante === option ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'}`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div>
+              <label className="text-[12px] font-semibold uppercase tracking-[0.22em] text-slate-500">Telefone responsável</label>
               <div className="mt-2 flex items-center rounded-[18px] border border-slate-200 bg-white px-4 py-3">
                 <Phone size={18} className="text-slate-400" />
                 <input
@@ -325,23 +484,7 @@ export default function PublicConfirmationForm() {
                   className="ml-3 w-full bg-transparent text-[15px] text-slate-950 outline-none"
                 />
               </div>
-              <div className="mt-2 text-[12px] text-slate-500">Informe o telefone no formato 55DDXXXXXXXXX.</div>
-            </div>
-
-            <div>
-              <label className="text-[12px] font-semibold uppercase tracking-[0.22em] text-slate-500">Tipo de participante</label>
-              <div className="mt-2 grid grid-cols-2 gap-3">
-                {(['Adulto', 'Adolescente'] as const).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setTipoParticipante(option)}
-                    className={`rounded-[18px] border px-4 py-3 text-[15px] font-semibold transition ${tipoParticipante === option ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'}`}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
+              <div className="mt-2 text-[12px] text-slate-500">Informe o telefone no formato 55DDXXXXXXXXX. Ele será usado em todas as linhas geradas.</div>
             </div>
 
             <div>
@@ -361,7 +504,7 @@ export default function PublicConfirmationForm() {
 
             <button
               type="submit"
-              disabled={submitting || loading}
+              disabled={submitting || loading || !selectedEvent}
               className="inline-flex w-full items-center justify-center gap-2 rounded-[18px] bg-gradient-to-r from-[#0b4f7a] to-[#1d71b8] px-5 py-4 text-[15px] font-black text-[#111827] shadow-lg shadow-sky-500/20 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
             >
               {submitting ? <Loader2 className="animate-spin" size={18} /> : null}
@@ -382,10 +525,17 @@ export default function PublicConfirmationForm() {
           <div className="w-full max-w-md rounded-[28px] border border-emerald-200 bg-white p-6 text-center shadow-2xl">
             <CheckCircle2 size={46} className="mx-auto text-emerald-500" />
             <h3 className="mt-4 text-[24px] font-black text-slate-950">Confirmação registrada</h3>
-            <p className="mt-2 text-[15px] text-slate-600">Obrigado por confirmar sua participação.</p>
+            <p className="mt-2 text-[15px] text-slate-600">
+              {success.confirmacaoIds.length > 1
+                ? `${success.confirmacaoIds.length} participantes foram registrados com o mesmo comprovante.`
+                : 'Obrigado por confirmar sua participação.'}
+            </p>
             <div className="mt-5 rounded-[20px] border border-slate-200 bg-slate-50 p-4 text-left">
               <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">ID da confirmação</div>
               <div className="mt-2 break-all text-[15px] font-bold text-slate-950">{success.confirmacao_id}</div>
+              {success.nomesConfirmados.length ? (
+                <div className="mt-3 text-[13px] text-slate-600">{success.nomesConfirmados.join(', ')}</div>
+              ) : null}
               {success.proofUrl ? <div className="mt-3 break-all text-[13px] text-slate-500">{success.proofUrl}</div> : null}
             </div>
             <button

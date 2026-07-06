@@ -263,43 +263,45 @@ function submitConfirmation_(payload, isAdmin) {
   }
 
   var confirmationSheet = ensureSheet_(CONFIRMATION_SHEET_NAME, CONFIRMATION_HEADERS);
-  var existingDuplicate = findDuplicateConfirmation_(confirmationSheet, normalized.evento_id, normalized.telefone);
-  if (existingDuplicate && !isAdmin) {
-    throw new Error('Ja existe uma confirmacao para este telefone neste evento. Se precisar corrigir alguma informacao, fale com a coordenacao.');
-  }
-
+  var batchId = generateId_('CONF');
   var proofInfo = null;
   if (normalized.proofFile) {
-    proofInfo = saveProofFile_(normalized.proofFile, normalized.evento_id, normalized.nome_completo);
+    proofInfo = saveProofFile_(normalized.proofFile, batchId, normalized.participants[0].nome_completo);
   }
 
-  var confirmationId = generateId_('CONF');
   var now = nowIso_();
-  var record = {
-    confirmacao_id: confirmationId,
-    data_hora: now,
-    evento_id: event.evento_id,
-    nome_evento: event.nome_evento,
-    data_evento: event.data_evento,
-    nome_completo: normalized.nome_completo,
-    telefone: normalized.telefone,
-    tipo_participante: normalized.tipo_participante,
-    chave_pix_utilizada: normalized.tipo_participante === 'Adulto' ? event.pix_adulto : event.pix_adolescente,
-    nome_arquivo_comprovante: proofInfo ? proofInfo.name : '',
-    link_comprovante: proofInfo ? proofInfo.url : '',
-    origem_registro: isAdmin ? 'Admin' : 'Publico',
-    registrado_por_admin: isAdmin ? 'Sim' : 'Não',
-    status_confirmacao: isAdmin && !proofInfo ? 'Registrado pelo Admin' : 'Confirmado',
-    observacao: normalized.observacao,
-    criado_em: now,
-    atualizado_em: now,
-  };
+  var records = normalized.participants.map(function (participant) {
+    return {
+      confirmacao_id: generateId_('CONF'),
+      data_hora: now,
+      evento_id: event.evento_id,
+      nome_evento: event.nome_evento,
+      data_evento: event.data_evento,
+      nome_completo: participant.nome_completo,
+      telefone: normalized.telefone,
+      tipo_participante: participant.tipo_participante,
+      chave_pix_utilizada: participant.tipo_participante === 'Adulto' ? event.pix_adulto : event.pix_adolescente,
+      nome_arquivo_comprovante: proofInfo ? proofInfo.name : '',
+      link_comprovante: proofInfo ? proofInfo.url : '',
+      origem_registro: isAdmin ? 'Admin' : 'Publico',
+      registrado_por_admin: isAdmin ? 'Sim' : 'Não',
+      status_confirmacao: isAdmin && !proofInfo ? 'Registrado pelo Admin' : 'Confirmado',
+      observacao: normalized.observacao,
+      criado_em: now,
+      atualizado_em: now,
+    };
+  });
 
-  appendConfirmationRow_(confirmationSheet, record);
+  records.forEach(function (record) {
+    appendConfirmationRow_(confirmationSheet, record);
+  });
 
   return {
     success: true,
-    confirmacao_id: confirmationId,
+    confirmacao_id: records[0].confirmacao_id,
+    confirmacao_ids: records.map(function (record) { return record.confirmacao_id; }),
+    total_confirmacoes: records.length,
+    nomes_confirmados: records.map(function (record) { return record.nome_completo; }),
     message: isAdmin && !proofInfo ? 'Registro realizado pelo admin.' : 'Confirmação registrada com sucesso.',
     proofUrl: proofInfo ? proofInfo.url : '',
   };
@@ -333,16 +335,32 @@ function normalizeConfirmationInput_(payload, isAdmin) {
   var tipo_participante = String(payload && payload.tipo_participante || '').trim();
   var observacao = String(payload && payload.observacao || '').trim();
   var proofFile = payload && payload.proofFile ? payload.proofFile : null;
+  var rawParticipants = payload && payload.participants;
+  var participants = Array.isArray(rawParticipants) && rawParticipants.length
+    ? rawParticipants.map(function (participant) {
+        return {
+          nome_completo: String(participant && participant.nome_completo || '').trim().replace(/\s+/g, ' '),
+          tipo_participante: String(participant && participant.tipo_participante || '').trim(),
+        };
+      })
+    : [{
+        nome_completo: nome_completo,
+        tipo_participante: tipo_participante,
+      }];
 
   if (!evento_id) throw new Error('evento_id obrigatorio.');
-  if (!nome_completo || nome_completo.split(' ').filter(Boolean).length < 2) {
-    throw new Error('Informe o nome completo com pelo menos duas palavras.');
-  }
   if (!/^55\d{10,11}$/.test(telefone)) {
     throw new Error('Informe o telefone no formato 55DDXXXXXXXXX. Exemplo: 5521999999999.');
   }
-  if (tipo_participante !== 'Adulto' && tipo_participante !== 'Adolescente') {
-    throw new Error('Tipo de participante invalido.');
+  if (!participants.length) throw new Error('Informe pelo menos um participante.');
+  if (participants.length > 10) throw new Error('Cada confirmacao pode registrar no maximo 10 participantes.');
+  for (var i = 0; i < participants.length; i++) {
+    if (!participants[i].nome_completo || participants[i].nome_completo.split(' ').filter(Boolean).length < 2) {
+      throw new Error('Informe o nome completo de cada participante com pelo menos duas palavras.');
+    }
+    if (participants[i].tipo_participante !== 'Adulto' && participants[i].tipo_participante !== 'Adolescente') {
+      throw new Error('Tipo de participante invalido.');
+    }
   }
   if (proofFile) {
     validateProofFile_(proofFile);
@@ -353,6 +371,7 @@ function normalizeConfirmationInput_(payload, isAdmin) {
     nome_completo: nome_completo,
     telefone: telefone,
     tipo_participante: tipo_participante,
+    participants: participants,
     observacao: observacao,
     proofFile: proofFile,
     isAdmin: isAdmin,
@@ -485,21 +504,6 @@ function findEventById_(eventoId) {
   for (var i = 0; i < events.length; i++) {
     if (events[i].evento_id === eventoId) {
       return events[i];
-    }
-  }
-  return null;
-}
-
-function findDuplicateConfirmation_(sheet, eventoId, telefone) {
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return null;
-  var headers = data[0];
-  var idxEvento = getHeaderIndex_(headers, 'evento_id');
-  var idxTelefone = getHeaderIndex_(headers, 'telefone');
-  if (idxEvento < 0 || idxTelefone < 0) return null;
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][idxEvento] || '').trim() === eventoId && String(data[i][idxTelefone] || '').trim() === telefone) {
-      return mapConfirmationRow_(headers, data[i]);
     }
   }
   return null;

@@ -5,6 +5,7 @@
   AdminLoginResult,
   AdminSaveEventPayload,
   AdminSubmitConfirmationPayload,
+  ConfirmationParticipantPayload,
   AdminToggleEventStatusPayload,
   AdminValidateTokenResult,
   BootstrapData,
@@ -217,11 +218,31 @@ function findEvent(state: MockState, evento_id: string) {
   return state.events.find((event) => event.evento_id === evento_id) || null;
 }
 
+function normalizeConfirmationParticipants(
+  payload: SubmitConfirmationPayload | AdminSubmitConfirmationPayload,
+): ConfirmationParticipantPayload[] {
+  const rawParticipants = Array.isArray((payload as SubmitConfirmationPayload).participants)
+    ? (payload as SubmitConfirmationPayload).participants
+    : null;
+
+  const participants = rawParticipants?.length
+    ? rawParticipants
+    : [{
+        nome_completo: payload.nome_completo,
+        tipo_participante: payload.tipo_participante,
+      }];
+
+  return participants.map((participant) => ({
+    nome_completo: String(participant?.nome_completo || '').trim().replace(/\s+/g, ' '),
+    tipo_participante: participant?.tipo_participante,
+  }));
+}
+
 function submitConfirmationLike(
   state: MockState,
   payload: SubmitConfirmationPayload | AdminSubmitConfirmationPayload,
   origin: 'Publico' | 'Admin',
-): { confirmation: ConfirmationRecord; proofUrl: string } {
+): { confirmations: ConfirmationRecord[]; proofUrl: string } {
   const event = findEvent(state, payload.evento_id);
   if (!event) {
     throw new Error('Evento Não encontrado.');
@@ -230,57 +251,60 @@ function submitConfirmationLike(
     throw new Error('O evento escolhido estÃ¡ inativo.');
   }
 
-  const nome_completo = String(payload.nome_completo || '').trim().replace(/\s+/g, ' ');
   const telefone = String(payload.telefone || '').replace(/\D/g, '');
-  const tipo_participante = payload.tipo_participante;
   const proofFile = payload.proofFile ?? null;
+  const participants = normalizeConfirmationParticipants(payload);
 
-  if (!nome_completo || nome_completo.split(' ').filter(Boolean).length < 2) {
-    throw new Error('Informe o nome completo com pelo menos duas palavras.');
-  }
   if (!validatePhone(telefone)) {
     throw new Error('Informe o telefone no formato 55DDXXXXXXXXX. Exemplo: 5521999999999.');
-  }
-  if (tipo_participante !== 'Adulto' && tipo_participante !== 'Adolescente') {
-    throw new Error('Tipo de participante invÃ¡lido.');
   }
   if (origin === 'Publico' || proofFile) {
     ensureAllowedFile(proofFile);
   }
-
-  const duplicate = state.confirmations.find(
-    (record) => record.evento_id === event.evento_id && record.telefone === telefone,
-  );
-  if (duplicate && origin === 'Publico') {
-    throw new Error('JÃ¡ existe uma confirmaÃ§Ã£o para este telefone neste evento. Se precisar corrigir alguma informaÃ§Ã£o, fale com a coordenaÃ§Ã£o.');
+  if (!participants.length) {
+    throw new Error('Informe pelo menos um participante.');
+  }
+  if (participants.length > 10) {
+    throw new Error('Cada confirmação pode registrar no máximo 10 participantes.');
   }
 
-  const confirmationId = generateId('CONF');
-  const proofUrl = proofFile ? `https://drive.mock/${confirmationId}/${encodeURIComponent(proofFile.name)}` : '';
-  const record: ConfirmationRecord = {
-    confirmacao_id: confirmationId,
-    data_hora: nowIso(),
+  for (const participant of participants) {
+    if (!participant.nome_completo || participant.nome_completo.split(' ').filter(Boolean).length < 2) {
+      throw new Error('Informe o nome completo de cada participante com pelo menos duas palavras.');
+    }
+    if (participant.tipo_participante !== 'Adulto' && participant.tipo_participante !== 'Adolescente') {
+      throw new Error('Tipo de participante invÃ¡lido.');
+    }
+  }
+
+  const batchId = generateId('CONF');
+  const proofUrl = proofFile ? `https://drive.mock/${batchId}/${encodeURIComponent(proofFile.name)}` : '';
+  const timestamp = nowIso();
+  const observations = 'observacao' in payload ? String(payload.observacao || '').trim() : '';
+  const confirmations = participants.map((participant) => ({
+    confirmacao_id: generateId('CONF'),
+    data_hora: timestamp,
     evento_id: event.evento_id,
     nome_evento: event.nome_evento,
     data_evento: event.data_evento,
-    nome_completo,
+    nome_completo: participant.nome_completo,
     telefone,
-    tipo_participante,
-    chave_pix_utilizada: tipo_participante === 'Adulto' ? event.pix_adulto : event.pix_adolescente,
+    tipo_participante: participant.tipo_participante,
+    chave_pix_utilizada: participant.tipo_participante === 'Adulto' ? event.pix_adulto : event.pix_adolescente,
     nome_arquivo_comprovante: proofFile?.name || '',
     link_comprovante: proofUrl,
     origem_registro: origin,
     registrado_por_admin: origin === 'Admin' ? 'Sim' : 'Não',
     status_confirmacao: origin === 'Admin' && !proofFile ? 'Registrado pelo Admin' : 'Confirmado',
-    observacao: 'observacao' in payload ? String(payload.observacao || '').trim() : '',
-    criado_em: nowIso(),
-    atualizado_em: nowIso(),
-  };
+    observacao: observations,
+    criado_em: timestamp,
+    atualizado_em: timestamp,
+  }));
 
-  state.confirmations.unshift(record);
+  state.confirmations.unshift(...confirmations);
   setMockState(state);
 
-  return { confirmation: record, proofUrl };
+  return { confirmations, proofUrl };
 }
 
 async function handleMockAction<T>(action: string, payload?: unknown): Promise<T> {
@@ -300,7 +324,10 @@ async function handleMockAction<T>(action: string, payload?: unknown): Promise<T
       const result = submitConfirmationLike(state, payload as SubmitConfirmationPayload, 'Publico');
       return {
         success: true,
-        confirmacao_id: result.confirmation.confirmacao_id,
+        confirmacao_id: result.confirmations[0].confirmacao_id,
+        confirmacao_ids: result.confirmations.map((item) => item.confirmacao_id),
+        total_confirmacoes: result.confirmations.length,
+        nomes_confirmados: result.confirmations.map((item) => item.nome_completo),
         message: 'ConfirmaÃ§Ã£o registrada com sucesso.',
         proofUrl: result.proofUrl,
       } as T;
@@ -391,14 +418,19 @@ async function handleMockAction<T>(action: string, payload?: unknown): Promise<T
       assertAdminToken(state, request.adminToken);
       const result = submitConfirmationLike(state, request, 'Admin');
       if (!request.proofFile) {
-        result.confirmation.status_confirmacao = 'Registrado pelo Admin';
-        result.confirmation.nome_arquivo_comprovante = '';
-        result.confirmation.link_comprovante = '';
+        result.confirmations.forEach((confirmation) => {
+          confirmation.status_confirmacao = 'Registrado pelo Admin';
+          confirmation.nome_arquivo_comprovante = '';
+          confirmation.link_comprovante = '';
+        });
       }
       setMockState(state);
       return {
         success: true,
-        confirmacao_id: result.confirmation.confirmacao_id,
+        confirmacao_id: result.confirmations[0].confirmacao_id,
+        confirmacao_ids: result.confirmations.map((item) => item.confirmacao_id),
+        total_confirmacoes: result.confirmations.length,
+        nomes_confirmados: result.confirmations.map((item) => item.nome_completo),
         message: request.proofFile ? 'ConfirmaÃ§Ã£o registrada com sucesso.' : 'Registro realizado pelo admin.',
         proofUrl: result.proofUrl,
       } as T;
@@ -417,7 +449,7 @@ export async function getPublicBootstrap(): Promise<PublicBootstrapData> {
 }
 
 export async function submitConfirmation(payload: SubmitConfirmationPayload) {
-  return callGas<{ success: boolean; confirmacao_id: string; message: string; proofUrl: string }>('submitConfirmation', payload);
+  return callGas<{ success: boolean; confirmacao_id: string; confirmacao_ids: string[]; total_confirmacoes: number; nomes_confirmados: string[]; message: string; proofUrl: string }>('submitConfirmation', payload);
 }
 
 export async function adminLogin(password: string): Promise<AdminLoginResult> {
@@ -445,7 +477,7 @@ export async function adminListConfirmations(payload: AdminListConfirmationsPayl
 }
 
 export async function adminSubmitConfirmation(payload: AdminSubmitConfirmationPayload) {
-  return callGas<{ success: boolean; confirmacao_id: string; message: string; proofUrl: string }>('adminSubmitConfirmation', payload);
+  return callGas<{ success: boolean; confirmacao_id: string; confirmacao_ids: string[]; total_confirmacoes: number; nomes_confirmados: string[]; message: string; proofUrl: string }>('adminSubmitConfirmation', payload);
 }
 
 export async function setupEnvironment() {

@@ -157,11 +157,17 @@ export interface ProofFilePayload {
   base64: string;
 }
 
+export interface ConfirmationParticipantPayload {
+  nome_completo: string;
+  tipo_participante: 'Adulto' | 'Adolescente';
+}
+
 export interface SubmitConfirmationPayload {
   evento_id: string;
   nome_completo: string;
   telefone: string;
   tipo_participante: 'Adulto' | 'Adolescente';
+  participants?: ConfirmationParticipantPayload[];
   proofFile?: ProofFilePayload | null;
 }
 
