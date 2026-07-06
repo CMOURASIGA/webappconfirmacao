@@ -233,22 +233,31 @@ export default function PublicConfirmationForm() {
         participants: normalizedParticipants,
         proofFile: proofFilePayload,
       });
+      const confirmacaoIds = Array.isArray(response.confirmacao_ids) && response.confirmacao_ids.length
+        ? response.confirmacao_ids
+        : [response.confirmacao_id].filter(Boolean);
+      const nomesConfirmados = Array.isArray(response.nomes_confirmados) && response.nomes_confirmados.length
+        ? response.nomes_confirmados
+        : normalizedParticipants.map((participant) => participant.nome_completo);
+      const totalConfirmacoes = typeof response.total_confirmacoes === 'number' && response.total_confirmacoes > 0
+        ? response.total_confirmacoes
+        : confirmacaoIds.length || normalizedParticipants.length;
 
       setSuccess({
         open: true,
         confirmacao_id: response.confirmacao_id,
-        confirmacaoIds: response.confirmacao_ids,
+        confirmacaoIds,
         proofUrl: response.proofUrl,
         nomeEvento: selectedEvent.nome_evento,
         dataEvento: selectedEvent.data_evento,
-        nomesConfirmados: response.nomes_confirmados,
+        nomesConfirmados,
         telefone: normalizedPhone,
         tiposParticipante: normalizedParticipants.map((participant) => participant.tipo_participante),
       });
       setMessage({
         type: 'success',
-        text: response.total_confirmacoes > 1
-          ? `${response.total_confirmacoes} confirmações registradas com sucesso.`
+        text: totalConfirmacoes > 1
+          ? `${totalConfirmacoes} confirmações registradas com sucesso.`
           : 'Confirmação registrada com sucesso. Obrigado por confirmar sua participação.',
       });
       setParticipantCount(1);
