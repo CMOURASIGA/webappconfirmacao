@@ -37,13 +37,13 @@ function PixCard({
   onCopy: () => void;
 }) {
   return (
-    <div className={`rounded-[22px] border border-white/10 bg-gradient-to-br ${accent} p-4 text-white shadow-lg`}>
+    <div className={`flex min-h-[220px] flex-col rounded-[22px] border border-white/10 bg-gradient-to-br ${accent} p-4 text-white shadow-lg`}>
       <div className="text-[11px] uppercase tracking-[0.24em] text-white/70">{title}</div>
-      <div className="mt-2 text-[15px] font-semibold leading-6 text-white/95">{description}</div>
+      <div className="mt-3 text-[14px] font-semibold leading-6 text-white/95">{description}</div>
       <button
         type="button"
         onClick={onCopy}
-        className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[12px] font-semibold transition hover:bg-white/15"
+        className="mt-auto inline-flex items-center gap-2 self-start rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[12px] font-semibold transition hover:bg-white/15"
       >
         <Copy size={14} />
         Copiar chave
@@ -54,19 +54,19 @@ function PixCard({
 
 function FreeValuePixCard({ onCopy }: { onCopy: () => void }) {
   return (
-    <div className="rounded-[22px] border border-white/10 bg-gradient-to-br from-[#14532d] via-[#15803d] to-[#14532d] p-4 text-white shadow-lg">
+    <div className="flex min-h-[220px] flex-col rounded-[22px] border border-white/10 bg-gradient-to-br from-[#14532d] via-[#15803d] to-[#14532d] p-4 text-white shadow-lg">
       <div className="text-[11px] uppercase tracking-[0.24em] text-white/70">Pix com valor livre</div>
       <div className="mt-2 text-[14px] uppercase tracking-[0.18em] text-white/55">Chave celular</div>
-      <div className="mt-2 break-all text-[22px] font-black leading-7 text-white">{FREE_VALUE_PIX_KEY}</div>
+      <div className="mt-2 break-all text-[20px] font-black leading-7 text-white">{FREE_VALUE_PIX_KEY}</div>
       <div className="mt-3 text-[12px] uppercase tracking-[0.18em] text-white/55">Favorecido</div>
       <div className="mt-2 text-[15px] font-semibold leading-6 text-white/95">{FREE_VALUE_PIX_BENEFICIARY}</div>
       <div className="mt-3 text-[13px] leading-6 text-white/80">
-        Abra o aplicativo do seu banco, escolha Pix por chave celular, cole a chave e digite o valor desejado.
+        Pix por chave celular. Cole a chave no banco e informe o valor desejado.
       </div>
       <button
         type="button"
         onClick={onCopy}
-        className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[12px] font-semibold transition hover:bg-white/15"
+        className="mt-auto inline-flex items-center gap-2 self-start rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[12px] font-semibold transition hover:bg-white/15"
       >
         <Copy size={14} />
         Copiar chave Pix
@@ -334,7 +334,7 @@ export default function PublicConfirmationForm() {
 
           <div className="px-6 pb-6 md:px-8 md:pb-8">
             <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 md:p-6">
-              <div className="grid gap-4 lg:grid-cols-[0.88fr_1.12fr]">
+              <div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
                 <div>
                   <label className="text-[11px] font-semibold uppercase tracking-[0.26em] text-white/55">Escolha o evento</label>
                   <select
@@ -358,11 +358,11 @@ export default function PublicConfirmationForm() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
                   <PixCard
                     title="PIX Adulto"
                     accent="from-[#0b4f7a] to-[#083654]"
-                    description="Use a chave específica do adulto quando a confirmação seguir a regra atual."
+                    description="Use a chave específica do adulto quando a confirmação seguir a regra atual do evento."
                     onCopy={() => {
                       if (selectedEvent) {
                         void copyToClipboard(selectedEvent.pix_adulto).then(() => {
@@ -378,7 +378,7 @@ export default function PublicConfirmationForm() {
                   <PixCard
                     title="PIX Adolescente"
                     accent="from-[#c81e2f] to-[#7f1220]"
-                    description="Use a chave específica do adolescente quando a confirmação seguir a regra atual."
+                    description="Use a chave específica do adolescente quando a confirmação seguir a regra atual do evento."
                     onCopy={() => {
                       if (selectedEvent) {
                         void copyToClipboard(selectedEvent.pix_adolescente).then(() => {
