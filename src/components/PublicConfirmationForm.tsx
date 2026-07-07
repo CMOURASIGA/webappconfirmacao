@@ -81,6 +81,7 @@ export default function PublicConfirmationForm() {
   const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string } | null>(null);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [participantCount, setParticipantCount] = useState(1);
+  const [participantCountInput, setParticipantCountInput] = useState('1');
   const [participants, setParticipants] = useState<ConfirmationParticipantPayload[]>([createParticipant()]);
   const [telefone, setTelefone] = useState(initialPhone);
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -169,6 +170,30 @@ export default function PublicConfirmationForm() {
       return next;
     });
   }, [participantCount]);
+
+  useEffect(() => {
+    setParticipantCountInput(String(participantCount));
+  }, [participantCount]);
+
+  const handleParticipantCountChange = (value: string) => {
+    const digitsOnly = value.replace(/\D/g, '');
+    setParticipantCountInput(digitsOnly);
+
+    if (!digitsOnly) {
+      return;
+    }
+
+    const nextCount = Math.max(1, Math.min(MAX_PARTICIPANTS, Number(digitsOnly)));
+    setParticipantCount(nextCount);
+  };
+
+  const handleParticipantCountBlur = () => {
+    const digitsOnly = participantCountInput.replace(/\D/g, '');
+    const nextCount = Math.max(1, Math.min(MAX_PARTICIPANTS, Number(digitsOnly) || 1));
+
+    setParticipantCount(nextCount);
+    setParticipantCountInput(String(nextCount));
+  };
 
   const updateParticipant = (index: number, updates: Partial<ConfirmationParticipantPayload>) => {
     setParticipants((current) => current.map((participant, currentIndex) => (
@@ -451,8 +476,10 @@ export default function PublicConfirmationForm() {
                 type="number"
                 min={1}
                 max={MAX_PARTICIPANTS}
-                value={participantCount}
-                onChange={(e) => setParticipantCount(Math.max(1, Math.min(MAX_PARTICIPANTS, Number(e.target.value) || 1)))}
+                inputMode="numeric"
+                value={participantCountInput}
+                onChange={(e) => handleParticipantCountChange(e.target.value)}
+                onBlur={handleParticipantCountBlur}
                 className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-950 outline-none transition focus:border-[#0b4f7a]"
               />
               <div className="mt-2 text-[12px] text-slate-500">Use de 1 a {MAX_PARTICIPANTS} participantes por confirmação.</div>
